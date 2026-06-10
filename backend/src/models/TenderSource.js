@@ -173,6 +173,12 @@ const tenderSourceSchema = new mongoose.Schema({
     trim: true
   }],
   
+  keywordFilePath: {
+    type: String,
+    trim: true,
+    default: null
+  },
+  
   // Geographic and sector filters
   regions: [{
     type: String,

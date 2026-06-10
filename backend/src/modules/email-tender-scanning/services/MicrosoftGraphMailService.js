@@ -86,39 +86,6 @@ async function fetchInboxMessages(mailbox, companyId) {
   }
 }
 
-async function fetchMessageAttachments(mailbox, graphMessageId, companyId) {
-  if (!isGraphConfigured()) return [];
-
-  try {
-    const auth = await outlookAuth.authenticateWithRetry({ companyId, mailbox });
-    const token = auth.token;
-    const userId = mailbox.graphUserId || mailbox.email;
-
-    return withRetry(
-      async () => {
-        const data = await graphGet(
-          `/users/${encodeURIComponent(userId)}/messages/${graphMessageId}/attachments`,
-          token
-        );
-
-        return (data.value || []).map((att) => ({
-          id: att.id,
-          name: att.name,
-          contentType: att.contentType,
-          size: att.size,
-          isImage: att.contentType ? att.contentType.startsWith('image/') : false,
-          contentBytes: att.contentBytes // base64 encoded content
-        }));
-      },
-      'ATS-003 graph attachments',
-      { mailbox: mailbox.email }
-    );
-  } catch (error) {
-    console.error('Failed to fetch message attachments:', error.message);
-    return [];
-  }
-}
-
 async function moveMessageToFolder(mailbox, graphMessageId, folderName, companyId) {
   if (!isGraphConfigured() || !graphMessageId) {
     return { simulated: true, folder: folderName };
@@ -173,7 +140,6 @@ module.exports = {
   isGraphConfigured,
   MAX_RETRIES,
   fetchInboxMessages,
-  fetchMessageAttachments,
   moveMessageToFolder,
   forwardMessage,
   withRetry

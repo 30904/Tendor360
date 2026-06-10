@@ -15,7 +15,7 @@ const tenderDiscoveryJobSchema = new mongoose.Schema(
     },
     connectorType: {
       type: String,
-      enum: ['govwin', 'sam_gov', 'email', 'manual'],
+      enum: ['generic_api', 'govwin', 'sam_gov', 'web_scrape', 'email', 'manual'],
       required: true,
       index: true
     },

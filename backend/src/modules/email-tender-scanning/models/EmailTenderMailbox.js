@@ -20,18 +20,6 @@ const emailTenderMailboxSchema = new mongoose.Schema(
     folderInbox: { type: String, default: 'Inbox' },
     folderRejected: { type: String, default: 'Rejected Tenders' },
     folderProcessed: { type: String, default: 'Processed Tenders' },
-    provider: {
-      type: String,
-      enum: ['graph', 'imap', 'demo'],
-      default: 'graph'
-    },
-    imapConfig: {
-      host: { type: String },
-      port: { type: Number, default: 993 },
-      tls: { type: Boolean, default: true },
-      user: { type: String },
-      password: { type: String }
-    },
     forwardTo: [{ type: String, trim: true, lowercase: true }],
     status: {
       type: String,

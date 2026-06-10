@@ -1,28 +1,6 @@
-const axios = require('axios');
+const { chromium } = require('playwright');
 const BaseConnector = require('./BaseConnector');
-
-function extractLinksFromHtml(html, selectorHint = 'a[href]') {
-  const links = [];
-  const hrefRegex = /<a[^>]+href=["']([^"']+)["'][^>]*>([^<]*)</gi;
-  let match;
-  while ((match = hrefRegex.exec(html)) !== null) {
-    const href = match[1];
-    const text = (match[2] || '').trim();
-    if (!href || href.startsWith('#') || href.startsWith('javascript:')) continue;
-    links.push({ href, text });
-  }
-
-  if (selectorHint && selectorHint !== 'a[href]') {
-    const className = selectorHint.replace(/.*\.([a-zA-Z0-9_-]+).*/, '$1');
-    if (className && className !== selectorHint) {
-      return links.filter(
-        (link) => link.href.includes(className) || link.text.toLowerCase().includes(className)
-      );
-    }
-  }
-
-  return links.slice(0, 50);
-}
+const { loadKeywordsFromFile } = require('../../modules/tender-discovery/services/ExcelKeywordLoaderService');
 
 class WebScrapeConnector extends BaseConnector {
   constructor() {
@@ -30,90 +8,182 @@ class WebScrapeConnector extends BaseConnector {
   }
 
   validateConfig(config = {}) {
-    if (!config.searchUrl && !config.baseUrl) {
-      throw new Error('Web scrape connector requires searchUrl or portal URL');
+    if (!config.searchUrl && !config.baseUrl && !config.loginUrl) {
+      throw new Error('Web scrape connector requires searchUrl, loginUrl or portal URL');
+    }
+  }
+
+  async _createBrowserContext() {
+    const browser = await chromium.launch({ headless: true });
+    const context = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Tender360-DiscoveryBot/1.0',
+      acceptDownloads: true,
+      viewport: { width: 1280, height: 720 }
+    });
+    return { browser, context };
+  }
+
+  async _performLogin(page, config) {
+    if (!config.loginUsername || !config.loginPassword || !config.loginUrl) {
+      return false; // No login credentials provided
+    }
+
+    try {
+      await page.goto(config.loginUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+      // Attempt to find common login fields if specific selectors aren't provided
+      // This is a generic heuristic.
+      const userSelector = config.usernameSelector || 'input[type="text"], input[type="email"], input[name*="user"], input[name*="email"]';
+      const passSelector = config.passwordSelector || 'input[type="password"], input[name*="pass"]';
+      const submitSelector = config.submitSelector || 'button[type="submit"], input[type="submit"], button:has-text("Log In"), button:has-text("Sign In"), button:has-text("Login")';
+
+      await page.waitForSelector(userSelector, { state: 'visible', timeout: 10000 });
+      await page.fill(userSelector, config.loginUsername);
+      await page.fill(passSelector, config.loginPassword);
+      
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {}), // catch timeout if it doesn't navigate but just updates DOM
+        page.click(submitSelector)
+      ]);
+      
+      return true;
+    } catch (e) {
+      console.warn(`WebScrapeConnector login failed or timed out: ${e.message}`);
+      return false;
+    }
+  }
+
+  async getAuthCookies(config) {
+    this.validateConfig(config);
+    const { browser, context } = await this._createBrowserContext();
+    try {
+      const page = await context.newPage();
+      await this._performLogin(page, config);
+      const cookies = await context.cookies();
+      return cookies;
+    } finally {
+      await browser.close();
     }
   }
 
   async discover({ config = {}, limit = 25 }) {
     this.validateConfig(config);
 
-    const targetUrl = config.searchUrl || config.baseUrl;
-    const response = await axios.get(targetUrl, {
-      timeout: 30000,
-      headers: {
-        'User-Agent': 'Tender360-DiscoveryBot/1.0',
-        Accept: 'text/html,application/xhtml+xml'
-      },
-      validateStatus: (status) => status < 500
-    });
+    const targetUrl = config.searchUrl || config.baseUrl || config.loginUrl;
+    const { browser, context } = await this._createBrowserContext();
 
-    if (response.status >= 400) {
-      throw new Error(`Failed to fetch portal page (${response.status})`);
-    }
+    try {
+      const page = await context.newPage();
+      
+      const loggedIn = await this._performLogin(page, config);
+      
+      if (config.searchUrl) {
+        await page.goto(config.searchUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      }
 
-    const html = String(response.data || '');
-    const links = extractLinksFromHtml(html, config.itemLinkSelector);
-    const keywords = (config.keywords || []).map((k) => k.toLowerCase());
+      const linkSelector = config.itemLinkSelector || 'a[href]';
+      await page.waitForSelector(linkSelector, { state: 'attached', timeout: 15000 }).catch(() => {});
 
-    const opportunities = links
-      .filter((link) => {
-        if (!keywords.length) return true;
-        const haystack = `${link.href} ${link.text}`.toLowerCase();
-        return keywords.some((kw) => haystack.includes(kw));
-      })
-      .slice(0, limit)
-      .map((link, index) => {
-        const absoluteUrl = link.href.startsWith('http')
-          ? link.href
-          : new URL(link.href, targetUrl).toString();
-        return this.normalizeOpportunity(
-          {
-            externalId: absoluteUrl,
-            reference: `SCRAPE-${Date.now()}-${index}`,
-            title: link.text || `Opportunity ${index + 1}`,
-            description: `Discovered via web scrape from ${targetUrl}`,
-            organization: config.sourceName || 'Web portal'
-          },
-          { name: config.sourceName || 'Web scrape' }
-        );
-      });
+      // Evaluate in browser context to get links
+      const links = await page.evaluate((sel) => {
+        const anchors = Array.from(document.querySelectorAll(sel));
+        return anchors
+          .map(a => ({ href: a.href, text: a.innerText.trim() }))
+          .filter(a => a.href && !a.href.startsWith('#') && !a.href.startsWith('javascript:'));
+      }, linkSelector);
 
-    return {
-      opportunities,
-      nextCursor: null,
-      logs: [
-        {
-          level: 'info',
-          message: `Web scrape parsed ${opportunities.length} links from ${targetUrl}`
-        },
-        {
-          level: 'info',
-          message:
-            'Interactive login automation is not enabled; configure public listing URLs or use API mode for authenticated portals.'
+      let keywords = (config.keywords || []).map((k) => String(k).toLowerCase());
+      let excelKeywordsLoaded = 0;
+
+      if (config.keywordFilePath) {
+        try {
+          const excelKeywords = loadKeywordsFromFile(config.keywordFilePath);
+          keywords = [...new Set([...keywords, ...excelKeywords])];
+          excelKeywordsLoaded = excelKeywords.length;
+        } catch (err) {
+          console.warn(`Failed to load Excel keywords from ${config.keywordFilePath}:`, err.message);
         }
-      ]
-    };
+      }
+
+      const opportunities = links
+        .filter((link) => {
+          if (!keywords.length) return true;
+          const haystack = `${link.href} ${link.text}`.toLowerCase();
+          return keywords.some((kw) => haystack.includes(kw));
+        })
+        .slice(0, limit)
+        .map((link, index) => {
+          return this.normalizeOpportunity(
+            {
+              externalId: link.href,
+              reference: `SCRAPE-${Date.now()}-${index}`,
+              title: link.text || `Opportunity ${index + 1}`,
+              description: `Discovered via web scrape from ${targetUrl}`,
+              organization: config.sourceName || 'Web portal'
+            },
+            { name: config.sourceName || 'Web scrape' }
+          );
+        });
+
+      return {
+        opportunities,
+        nextCursor: null,
+        logs: [
+          {
+            level: 'info',
+            message: `Web scrape parsed ${opportunities.length} links from ${targetUrl}`
+          },
+          {
+            level: 'info',
+            message: loggedIn ? `Successfully logged in via Playwright` : `Performed anonymous scrape (no login credentials or login failed)`
+          },
+          ...(excelKeywordsLoaded > 0 ? [{
+            level: 'info',
+            message: `Loaded ${excelKeywordsLoaded} keywords from attached Excel file`
+          }] : [])
+        ]
+      };
+    } catch (e) {
+      throw new Error(`Scrape failed: ${e.message}`);
+    } finally {
+      await browser.close();
+    }
   }
 
   async testConnection({ config = {} }) {
     this.validateConfig(config);
     const loginUrl = config.loginUrl || config.searchUrl || config.baseUrl;
-    const response = await axios.get(loginUrl, {
-      timeout: 15000,
-      headers: { 'User-Agent': 'Tender360-DiscoveryBot/1.0' },
-      validateStatus: (status) => status < 500
-    });
+    const { browser, context } = await this._createBrowserContext();
 
-    if (response.status >= 400) {
-      throw new Error(`Portal unreachable (${response.status})`);
+    try {
+      const page = await context.newPage();
+      const response = await page.goto(loginUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      
+      const status = response ? response.status() : 200;
+      if (status >= 400) {
+        throw new Error(`Portal unreachable (${status})`);
+      }
+
+      let message = `Portal reachable (${status}). `;
+      if (config.loginUsername && config.loginPassword) {
+        const loggedIn = await this._performLogin(page, config);
+        if (loggedIn) {
+          message += 'Login successful via Playwright.';
+        } else {
+          message += 'Login attempt failed. Please check selectors or credentials.';
+        }
+      } else {
+        message += 'No login credentials provided.';
+      }
+
+      return {
+        ok: true,
+        message,
+        statusCode: status
+      };
+    } finally {
+      await browser.close();
     }
-
-    return {
-      ok: true,
-      message: `Portal reachable (${response.status}). Saved credentials will be used when session-based automation is enabled.`,
-      statusCode: response.status
-    };
   }
 }
 

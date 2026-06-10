@@ -128,6 +128,7 @@ const getTenders = async (req, res) => {
       competitors: tender.competitors,
       daysUntilDeadline: tender.daysUntilDeadline,
       urgencyStatus: tender.urgencyStatus,
+      discovery: tender.discovery,
       createdAt: tender.createdAt,
       updatedAt: tender.updatedAt
     }));
@@ -211,6 +212,7 @@ const getTenderById = async (req, res) => {
       competitors: tender.competitors,
       daysUntilDeadline: tender.daysUntilDeadline,
       urgencyStatus: tender.urgencyStatus,
+      discovery: tender.discovery,
       createdAt: tender.createdAt,
       updatedAt: tender.updatedAt
     };
@@ -341,6 +343,7 @@ const createTender = async (req, res) => {
       competitors: tender.competitors,
       daysUntilDeadline: tender.daysUntilDeadline,
       urgencyStatus: tender.urgencyStatus,
+      discovery: tender.discovery,
       createdAt: tender.createdAt,
       updatedAt: tender.updatedAt
     };
@@ -456,6 +459,7 @@ const updateTender = async (req, res) => {
       competitors: tender.competitors,
       daysUntilDeadline: tender.daysUntilDeadline,
       urgencyStatus: tender.urgencyStatus,
+      discovery: tender.discovery,
       createdAt: tender.createdAt,
       updatedAt: tender.updatedAt
     };

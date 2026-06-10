@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Alert, Badge, Button, Card, Col, Row, Spinner, Tab, Tabs } from 'react-bootstrap'
+import { BiLinkExternal } from 'react-icons/bi'
 import ScoreMeter from '../../components/intelligence/ScoreMeter'
 import OperationalTimeline from '../../components/intelligence/OperationalTimeline'
 import RecommendationPill from '../../components/intelligence/RecommendationPill'
@@ -69,7 +70,20 @@ const OpportunityWorkspaceDetail = () => {
               {opportunity.reference}
             </Badge>
             <Badge bg="info">{opportunity.discovery?.connectorType || opportunity.source}</Badge>
-            <h2 className="h3 mt-2 mb-1">{opportunity.title}</h2>
+            <h2 className="h3 mt-2 mb-1 d-flex align-items-center gap-2">
+              {opportunity.title}
+              {opportunity.discovery?.externalKey && opportunity.discovery.externalKey.includes('http') && (
+                <a 
+                  href={opportunity.discovery.externalKey.substring(opportunity.discovery.externalKey.indexOf('http'))} 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="text-primary d-inline-flex" 
+                  title="View Original Source"
+                >
+                  <BiLinkExternal size={20} />
+                </a>
+              )}
+            </h2>
             <p className="mb-0 opacity-75">{opportunity.organization}</p>
             <div className="mt-2">
               <RecommendationPill value={workspace.goNoGo?.aiRecommendation || workspace.score?.recommendation || 'defer'} />

@@ -121,9 +121,22 @@ const getTenderSourceById = async (req, res) => {
       });
     }
 
+    let responseSource = maskSourceCredentials(source);
+    
+    // Check if we have an Excel file attached, and load its keywords to show in UI
+    if (source.keywordFilePath) {
+      try {
+        const { loadKeywordsFromFile } = require('../modules/tender-discovery/services/ExcelKeywordLoaderService');
+        responseSource.excelKeywords = loadKeywordsFromFile(source.keywordFilePath);
+      } catch (e) {
+        responseSource.excelKeywords = [];
+        console.warn(`Could not load excel keywords for UI display:`, e.message);
+      }
+    }
+
     res.json({
       success: true,
-      data: { source: maskSourceCredentials(source) },
+      data: { source: responseSource },
       message: 'Tender source retrieved successfully'
     });
 

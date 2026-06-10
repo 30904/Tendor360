@@ -36,6 +36,19 @@ export const discoveryConnectorsAPI = {
     return response.data;
   },
 
+  uploadExcelKeywords: async (sourceId, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    // Create a new custom axios instance or use the existing api but override headers
+    const response = await api.post(`/sources/${sourceId}/upload-keywords`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    return response.data;
+  },
+
   getSources: (params) => sourcesWatchlistsAPI.getTenderSources(params),
   getSource: (id) => sourcesWatchlistsAPI.getTenderSourceById(id),
   createSource: (data) => sourcesWatchlistsAPI.createTenderSource(data),

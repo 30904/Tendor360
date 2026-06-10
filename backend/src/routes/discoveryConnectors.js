@@ -4,8 +4,13 @@ const {
   getCatalog,
   testConnection,
   runDiscoveryNow,
-  seedDemoPlatform
+  seedDemoPlatform,
+  uploadExcelKeywords
 } = require('../controllers/discoveryConnectorsController');
+const multer = require('multer');
+
+// Configure multer for file uploads
+const upload = multer({ dest: 'uploads/' });
 
 const router = express.Router();
 
@@ -30,6 +35,14 @@ router.post(
   requireAuth,
   requireRoles(['TENDER MANAGER', 'SYSTEM ADMINISTRATOR', 'ADMIN']),
   seedDemoPlatform
+);
+
+router.post(
+  '/sources/:id/upload-keywords',
+  requireAuth,
+  requireRoles(['TENDER MANAGER', 'SYSTEM ADMINISTRATOR', 'ADMIN']),
+  upload.single('file'),
+  uploadExcelKeywords
 );
 
 module.exports = router;

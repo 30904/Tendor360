@@ -3,6 +3,7 @@ const path = require('path');
 const axios = require('axios');
 const Document = require('../../../models/Document');
 const SamGovConnector = require('../../../services/connectors/SamGovConnector');
+const WebScrapeConnector = require('../../../services/connectors/WebScrapeConnector');
 
 const UPLOAD_ROOT = path.join(__dirname, '../../../../uploads');
 
@@ -37,11 +38,18 @@ function normalizeAttachmentList(opportunity = {}) {
   return combined.filter((a) => a.url || a.noticeId);
 }
 
-async function downloadToFile(url, destPath, timeout = 20000) {
+async function downloadToFile(url, destPath, timeout = 20000, cookiesHeader = null) {
+  const headers = {};
+  if (cookiesHeader) {
+    headers['Cookie'] = cookiesHeader;
+    headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Tender360-DiscoveryBot/1.0';
+  }
+
   const response = await axios.get(url, {
     responseType: 'arraybuffer',
     timeout,
     maxRedirects: 5,
+    headers,
     validateStatus: (s) => s < 400
   });
   fs.writeFileSync(destPath, response.data);
@@ -65,7 +73,8 @@ class AttachmentHarvestService {
     tenderId,
     opportunity,
     primaryConnector,
-    samConfig
+    samConfig,
+    scrapeConfig
   }) {
     let attachments = normalizeAttachmentList(opportunity);
     let samFallbackUsed = false;
@@ -88,6 +97,19 @@ class AttachmentHarvestService {
       return results;
     }
 
+    let cookiesHeader = null;
+    if (scrapeConfig && scrapeConfig.loginUrl && scrapeConfig.loginUsername) {
+      try {
+        const scraper = new WebScrapeConnector();
+        const cookies = await scraper.getAuthCookies(scrapeConfig);
+        if (cookies && cookies.length) {
+          cookiesHeader = cookies.map(c => `${c.name}=${c.value}`).join('; ');
+        }
+      } catch (e) {
+        console.warn('Failed to retrieve cookies via WebScrapeConnector for attachment harvest', e);
+      }
+    }
+
     const uploadDir = ensureUploadDir(companyId);
 
     for (const attachment of attachments) {
@@ -101,12 +123,13 @@ class AttachmentHarvestService {
 
         if (attachment.url && !attachment.url.startsWith('demo://')) {
           try {
-            mimeType = await downloadToFile(attachment.url, destPath);
-          } catch {
-            mimeType = await createPlaceholderFile(destPath, safeName);
+            mimeType = await downloadToFile(attachment.url, destPath, 20000, cookiesHeader);
+          } catch (err) {
+            // TB-004 implementation fix: Do not create placeholder on fail, but let it throw so it counts as failure
+            throw new Error(`Failed to download ${attachment.url}: ${err.message}`);
           }
         } else {
-          mimeType = await createPlaceholderFile(destPath, safeName);
+           throw new Error(`Invalid attachment URL: ${attachment.url}`);
         }
 
         const relativePath = path.join(String(companyId), 'discovery', filename);
@@ -129,7 +152,8 @@ class AttachmentHarvestService {
             createdAt: new Date()
           },
           uploadedBy: userId,
-          tags: ['discovery', primaryConnector, samFallbackUsed ? 'sam_fallback' : 'portal'].filter(Boolean)
+          tags: ['discovery', primaryConnector, samFallbackUsed ? 'sam_fallback' : 'portal'].filter(Boolean),
+          downloadStatus: 'completed'
         });
 
         results.documents.push(document);

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Alert, Badge, Button, Card, Col, Form, Row, Spinner } from 'react-bootstrap'
-import { BiRefresh } from 'react-icons/bi'
+import { BiRefresh, BiLinkExternal } from 'react-icons/bi'
 import { useNavigate } from 'react-router-dom'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
 import InsightStream from '../../components/intelligence/InsightStream'
@@ -275,7 +275,21 @@ const OpportunityWorkspaceHub = () => {
                       <div className="workspace-opportunity-card">
                         <div className="workspace-opportunity-card__top">
                           <div>
-                            <div className="workspace-opportunity-card__title">{opportunity.title}</div>
+                            <div className="workspace-opportunity-card__title">
+                              {opportunity.title}
+                              {opportunity.discovery?.externalKey && opportunity.discovery.externalKey.includes('http') && (
+                                <a 
+                                  href={opportunity.discovery.externalKey.substring(opportunity.discovery.externalKey.indexOf('http'))} 
+                                  target="_blank" 
+                                  rel="noreferrer" 
+                                  className="ms-2 text-primary" 
+                                  title="View Original Source"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <BiLinkExternal size={16} />
+                                </a>
+                              )}
+                            </div>
                             <div className="workspace-opportunity-card__reference">{opportunity.reference}</div>
                           </div>
                           <div className={`workspace-opportunity-card__score tone-${scoreTone}`}>

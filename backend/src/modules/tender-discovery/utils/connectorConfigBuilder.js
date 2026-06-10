@@ -38,6 +38,7 @@ function buildConnectorConfigFromSource(source = {}) {
     itemLinkSelector: scraping.itemLinkSelector || 'a[href]',
     parsingConfig: source.parsingConfig || {},
     keywords: source.keywords || [],
+    keywordFilePath: source.keywordFilePath || null,
     sourceName: source.name
   };
 }

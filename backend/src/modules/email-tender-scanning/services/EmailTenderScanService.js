@@ -4,11 +4,8 @@ const Tender = require('../../../models/Tender');
 const { extractLinks, buildLinkSections } = require('../utils/extractLinks');
 const keywordScanner = require('./EmailKeywordScanner');
 const graphMail = require('./MicrosoftGraphMailService');
-const imapMail = require('./ImapMailService');
 const { recordFailureWithNotification } = require('./FailureNotificationService');
 const AutomationFailure = require('../../automation/models/AutomationFailure');
-const documentAI = require('../../../ai/services/documentAI');
-const { fetchLinkContent } = require('../utils/fetchLinkContent');
 
 function slugId(value) {
   return String(value || '')
@@ -118,135 +115,87 @@ class EmailTenderScanService {
 
   async processMessageDoc(message, keywords, mailbox) {
     const body = message.bodyText || message.bodyPreview || '';
+    const bodyScan = keywordScanner.scanText(body, keywords);
+    const attScan = keywordScanner.scanAttachments(message.attachments || [], keywords);
     const links = extractLinks(body);
-    
-    // Fetch attachments via Graph or IMAP if live
-    if (message.hasAttachments) {
-      let attachments = [];
-      if (mailbox.provider === 'imap') {
-        attachments = await imapMail.fetchMessageAttachments(mailbox, message.graphMessageId, message.companyId);
-      } else if (graphMail.isGraphConfigured()) {
-        attachments = await graphMail.fetchMessageAttachments(mailbox, message.graphMessageId, message.companyId);
-      }
-      
-      message.attachments = attachments.map((ga) => ({
-        name: ga.name,
-        contentType: ga.contentType,
-        size: ga.size,
-        isImage: ga.isImage,
-        contentBytes: ga.contentBytes
-      }));
-    }
+    const hasImageOnly =
+      (message.attachments || []).length > 0 &&
+      (message.attachments || []).every((a) => a.isImage) &&
+      !bodyScan.matched;
 
-    // Build aggregated content for LLM
-    let aggregatedContent = `Subject: ${message.subject || ''}\nFrom: ${message.from || ''}\n\nBody:\n${body}\n\n`;
-
-    const MAX_LINKS = parseInt(process.env.MAX_EMAIL_LINKS) || 3;
-    const linksToProcess = links.slice(0, MAX_LINKS);
-    
-    if (linksToProcess.length > 0) {
-      aggregatedContent += `--- Link Contents ---\n`;
-      for (const link of linksToProcess) {
-        const linkText = await fetchLinkContent(link);
-        aggregatedContent += `URL: ${link}\n${linkText.substring(0, 2000)}\n\n`;
-      }
-    }
-
-    if ((message.attachments || []).length > 0) {
-      aggregatedContent += `--- Attachment Contents ---\n`;
-      for (const att of message.attachments) {
-        if (att.isImage) {
-          aggregatedContent += `Attachment: ${att.name} (Image skipped)\n`;
-          continue;
-        }
-        
-        let attText = att.textContent || '';
-        if (!attText && att.contentBytes) {
-          try {
-            const buffer = Buffer.from(att.contentBytes, 'base64');
-            const ext = (att.name || '').split('.').pop() || 'txt';
-            attText = await documentAI.extractTextFromBuffer(buffer, ext);
-            att.textContent = attText;
-          } catch (e) {
-            attText = `[Failed to extract text: ${e.message}]`;
-          }
-        }
-        aggregatedContent += `Attachment: ${att.name}\n${attText.substring(0, 2000)}\n\n`;
-      }
-    }
-
-    if (aggregatedContent.length > 30000) {
-      aggregatedContent = aggregatedContent.substring(0, 30000) + '\n...[Truncated]';
-    }
-
-    let aiResult;
-    try {
-      aiResult = await documentAI.evaluateEmailTender(aggregatedContent, keywords);
-    } catch (error) {
-      console.error('LLM Evaluation failed for email:', error.message);
-      message.decision = 'pending';
+    if (hasImageOnly) {
+      message.scan = {
+        bodyKeywordHits: [],
+        attachmentKeywordHits: [],
+        matchedKeywords: [],
+        scanMode: 'image_excluded_oos'
+      };
+      message.decision = 'image_oos';
+      message.hasLinks = false;
+      message.links = [];
+      message.linkSections = [];
       message.actions.push({
-        type: 'graph_retry',
+        type: 'skipped_image_oos',
         at: new Date(),
-        detail: `LLM evaluation failed, left as pending. Error: ${error.message}`
+        detail: 'ATS-008: image-based tenders excluded per customer RTM'
       });
+      message.processedAt = new Date();
       await message.save();
-      throw new Error(`LLM evaluation failed: ${error.message}`);
+      return message;
     }
 
+    const allHits = [...new Set([...bodyScan.hits, ...attScan.hits])];
     message.scan = {
-      bodyKeywordHits: aiResult.matchedKeywords || [],
-      attachmentKeywordHits: [],
-      matchedKeywords: aiResult.matchedKeywords || [],
+      bodyKeywordHits: bodyScan.hits,
+      attachmentKeywordHits: attScan.hits,
+      matchedKeywords: allHits,
       scanMode: links.length ? 'links_and_keywords' : 'keywords_only'
     };
-    
     message.hasLinks = links.length > 0;
     message.links = links;
-    message.linkSections = links.map((url, idx) => ({
-      url,
-      label: `Link ${idx + 1}`,
-      retained: aiResult.isTender && idx < MAX_LINKS,
-      rejectReason: (aiResult.isTender && idx < MAX_LINKS) ? null : 'Rejected by AI or Exceeds limit',
-      keywordHits: aiResult.matchedKeywords || []
-    }));
+    message.linkSections = links.length ? buildLinkSections(links, allHits, bodyScan.matched) : [];
 
-    message.decision = aiResult.isTender ? 'matched' : 'rejected';
+    const retainedLinks = message.linkSections.filter((s) => s.retained);
+    const keywordMatch = bodyScan.matched || attScan.matched;
+    const linkMatch = retainedLinks.length > 0;
 
-    try {
-      if (message.decision === 'rejected') {
-        const move = mailbox.provider === 'imap'
-          ? await imapMail.moveMessageToFolder(mailbox, message.graphMessageId, mailbox.folderRejected, message.companyId)
-          : await graphMail.moveMessageToFolder(mailbox, message.graphMessageId, mailbox.folderRejected, message.companyId);
+    if (!links.length && keywordMatch) {
+      message.decision = 'matched';
+    } else if (links.length && linkMatch) {
+      message.decision = retainedLinks.length < links.length ? 'partial' : 'matched';
+    } else if (keywordMatch) {
+      message.decision = 'matched';
+    } else {
+      message.decision = 'rejected';
+    }
 
-        message.actions.push({
-          type: 'moved_to_rejected',
-          at: new Date(),
-          detail: (move.simulated ? 'Simulated move (demo/ATS-005)' : `Moved via ${mailbox.provider === 'imap' ? 'IMAP' : 'Microsoft Graph'}`) + ` | AI Reason: ${aiResult.reason || 'Not a tender'}`,
-          target: mailbox.folderRejected
-        });
-      } else {
-        const forward = await graphMail.forwardMessage(mailbox, message, mailbox.forwardTo);
-        message.actions.push({
-          type: 'forwarded_to_sales',
-          at: new Date(),
-          detail: (forward.simulated ? forward.note || 'Forward logged (ATS-006)' : 'SMTP forward sent') + ` | AI Reason: ${aiResult.reason || 'Identified as tender'}`,
-          target: (forward.to || []).join(', ')
-        });
-        
-        if (mailbox.provider === 'imap') {
-          await imapMail.moveMessageToFolder(mailbox, message.graphMessageId, mailbox.folderProcessed, message.companyId);
-        } else {
-          await graphMail.moveMessageToFolder(mailbox, message.graphMessageId, mailbox.folderProcessed, message.companyId);
-        }
-      }
-    } catch (actionError) {
-      console.error('Failed to move or forward message:', actionError.message);
+    if (message.decision === 'rejected') {
+      const move = await graphMail.moveMessageToFolder(
+        mailbox,
+        message.graphMessageId,
+        mailbox.folderRejected,
+        message.companyId
+      );
       message.actions.push({
-        type: 'graph_retry',
+        type: 'moved_to_rejected',
         at: new Date(),
-        detail: `Failed to move/forward: ${actionError.message}`
+        detail: move.simulated ? 'Simulated move (demo/ATS-005)' : 'Moved via Microsoft Graph',
+        target: mailbox.folderRejected
       });
+    } else if (message.decision === 'matched' || message.decision === 'partial') {
+      const forward = await graphMail.forwardMessage(mailbox, message, mailbox.forwardTo);
+      message.actions.push({
+        type: 'forwarded_to_sales',
+        at: new Date(),
+        detail: forward.simulated ? forward.note || 'Forward logged (ATS-006)' : 'SMTP forward sent',
+        target: (forward.to || []).join(', ')
+      });
+      await graphMail.moveMessageToFolder(
+        mailbox,
+        message.graphMessageId,
+        mailbox.folderProcessed,
+        message.companyId
+      );
     }
 
     message.processedAt = new Date();
@@ -266,45 +215,26 @@ class EmailTenderScanService {
     let ingested = 0;
 
     try {
-      if (mailbox.provider === 'imap') {
-        const remote = await imapMail.fetchInboxMessages(mailbox, companyId);
-        for (const item of remote) {
-          const existing = await EmailTenderMessage.findOne({
-            companyId,
-            graphMessageId: item.graphMessageId
-          });
-          if (existing) continue;
-          const doc = await EmailTenderMessage.create({
-            companyId,
-            mailboxId: mailbox._id,
-            ...item,
-            attachments: [],
-            actions: [],
-            decision: 'pending'
-          });
-          await this.processMessageDoc(doc, keywords, mailbox);
-          ingested += 1;
-        }
-      } else if (graphMail.isGraphConfigured()) {
-        const remote = await graphMail.fetchInboxMessages(mailbox, companyId);
-        for (const item of remote) {
-          const existing = await EmailTenderMessage.findOne({
-            companyId,
-            graphMessageId: item.graphMessageId
-          });
-          if (existing) continue;
-          const doc = await EmailTenderMessage.create({
-            companyId,
-            mailboxId: mailbox._id,
-            ...item,
-            attachments: [],
-            actions: [],
-            decision: 'pending'
-          });
-          await this.processMessageDoc(doc, keywords, mailbox);
-          ingested += 1;
-        }
-      } else {
+    if (graphMail.isGraphConfigured()) {
+      const remote = await graphMail.fetchInboxMessages(mailbox, companyId);
+      for (const item of remote) {
+        const existing = await EmailTenderMessage.findOne({
+          companyId,
+          graphMessageId: item.graphMessageId
+        });
+        if (existing) continue;
+        const doc = await EmailTenderMessage.create({
+          companyId,
+          mailboxId: mailbox._id,
+          ...item,
+          attachments: [],
+          actions: [],
+          decision: 'pending'
+        });
+        await this.processMessageDoc(doc, keywords, mailbox);
+        ingested += 1;
+      }
+    } else {
       const pending = await EmailTenderMessage.find({
         companyId,
         mailboxId: mailbox._id,

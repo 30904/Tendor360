@@ -40,7 +40,7 @@ const CONNECTOR_CATALOG = [
     key: 'web_scrape',
     displayName: 'Web scraping',
     integrationMode: 'web_scraping',
-    description: 'Parse public listing pages for tender links (no headless browser).',
+    description: 'Uses Playwright headless browser for full JS rendering and auth flow.',
     fields: ['searchUrl', 'loginUrl', 'keywords', 'itemLinkSelector']
   },
   {

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Alert, Badge, Breadcrumb, Button, Card, Col, Container, Form, Row, Spinner } from 'react-bootstrap'
-import { ArrowLeft, Edit, Save, Target } from 'lucide-react'
+import { ArrowLeft, Edit, Save, Target, ExternalLink } from 'lucide-react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useAltF1TestFill } from '../../hooks/useAltF1TestFill'
 import { dummyPipelineTenderForm } from '../../utils/testFormDummies'
@@ -154,7 +154,20 @@ const PipelineTenderPage = () => {
               {tender?.reference ? <Badge bg="light" text="dark">{tender.reference}</Badge> : null}
               {tender?.pipelineStage ? <Badge bg="info">{formatPipelineLabel(tender.pipelineStage)}</Badge> : null}
             </div>
-            <h1>{pageTitle}</h1>
+            <h1 className="d-flex align-items-center gap-2">
+              {pageTitle}
+              {tender?.discovery?.externalKey && tender.discovery.externalKey.includes('http') && (
+                <a 
+                  href={tender.discovery.externalKey.substring(tender.discovery.externalKey.indexOf('http'))} 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="text-primary d-inline-flex" 
+                  title="View Original Source"
+                >
+                  <ExternalLink size={24} />
+                </a>
+              )}
+            </h1>
             <p>
               {isCreate
                 ? 'Capture a new pursuit record with full commercial, classification, and governance context.'

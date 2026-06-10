@@ -195,9 +195,54 @@ const seedDemoPlatform = async (req, res) => {
   }
 };
 
+const uploadExcelKeywords = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const companyId = req.user.companyId;
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+
+    const source = await TenderSource.findOne({
+      _id: id,
+      companyId: new mongoose.Types.ObjectId(companyId),
+      isDeleted: false
+    });
+
+    if (!source) {
+      return res.status(404).json({ success: false, message: 'Connector not found' });
+    }
+
+    // Path is returned by multer
+    const keywordFilePath = req.file.path;
+
+    const { loadKeywordsFromFile } = require('../modules/tender-discovery/services/ExcelKeywordLoaderService');
+    const parsedKeywords = loadKeywordsFromFile(keywordFilePath);
+    const keywordsCount = parsedKeywords.length;
+
+    source.keywordFilePath = keywordFilePath;
+    await source.save();
+
+    res.json({
+      success: true,
+      data: {
+        keywordFilePath,
+        keywordsCount,
+        keywords: parsedKeywords
+      },
+      message: `Successfully uploaded and validated ${keywordsCount} keywords from Excel file.`
+    });
+  } catch (error) {
+    console.error('Upload Excel Keywords Error:', error);
+    res.status(500).json({ success: false, message: error.message || 'File upload failed' });
+  }
+};
+
 module.exports = {
   getCatalog,
   testConnection,
   runDiscoveryNow,
-  seedDemoPlatform
+  seedDemoPlatform,
+  uploadExcelKeywords
 };

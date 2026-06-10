@@ -13,23 +13,12 @@ class DocumentAIService {
   }
 
   /**
-   * Extract text from various document formats using file path
+   * Extract text from various document formats
    */
   async extractTextFromDocument(filePath, fileType) {
     try {
       const buffer = await fs.readFile(filePath);
-      return await this.extractTextFromBuffer(buffer, fileType);
-    } catch (error) {
-      console.error('Error extracting text from document:', error);
-      throw new Error(`Failed to extract text: ${error.message}`);
-    }
-  }
-
-  /**
-   * Extract text from raw buffer
-   */
-  async extractTextFromBuffer(buffer, fileType) {
-    try {
+      
       switch (fileType.toLowerCase()) {
         case 'pdf':
           const pdfData = await pdfParse(buffer);
@@ -40,6 +29,7 @@ class DocumentAIService {
           return docxResult.value;
         
         case 'doc':
+          // For .doc files, we'd need additional library like antiword
           throw new Error('DOC files not supported yet. Please convert to DOCX.');
         
         case 'txt':
@@ -49,8 +39,8 @@ class DocumentAIService {
           throw new Error(`Unsupported file type: ${fileType}`);
       }
     } catch (error) {
-      console.error('Error extracting text from buffer:', error);
-      throw new Error(`Failed to extract text from buffer: ${error.message}`);
+      console.error('Error extracting text from document:', error);
+      throw new Error(`Failed to extract text: ${error.message}`);
     }
   }
 
@@ -361,59 +351,6 @@ class DocumentAIService {
     if (documentText.includes('evaluation') || documentText.includes('criteria')) score += 0.1;
 
     return Math.min(1.0, Math.max(0.0, score));
-  }
-
-  /**
-   * Evaluate if email content is a tender/RFP using OpenAI
-   */
-  async evaluateEmailTender(emailContent, keywords) {
-    const openaiApiKey = process.env.OPENAI_API_KEY;
-    const model = process.env.OPENAI_MODEL || 'gpt-4o';
-    
-    if (!openaiApiKey) {
-      throw new Error('OpenAI API key not configured');
-    }
-
-    const { OpenAI } = require('openai');
-    const openai = new OpenAI({ apiKey: openaiApiKey });
-
-    const systemPrompt = `You are an expert tender and RFP analyst. Your task is to determine if the following email content represents a new tender, RFP, bid, or solicitation opportunity.`;
-    
-    const prompt = `
-Keywords to look out for: ${keywords.join(', ')}
-
-Email Content (including body, links, and attachments):
----
-${emailContent}
----
-
-Analyze the content carefully. Ignore simple newsletters, marketing spam, or general updates unless they contain actual bid/RFP invitations.
-Return ONLY a JSON object with the following structure:
-{
-  "isTender": boolean,
-  "matchedKeywords": ["found_keyword_1", "found_keyword_2"],
-  "confidence": number (1-100),
-  "reason": "Brief explanation of why it is or isn't a tender"
-}
-`;
-
-    try {
-      const response = await openai.chat.completions.create({
-        model: model,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.1,
-      });
-
-      const resultText = response.choices[0].message.content;
-      return JSON.parse(resultText);
-    } catch (error) {
-      console.error('OpenAI evaluation error:', error);
-      throw new Error(`AI evaluation failed: ${error.message}`);
-    }
   }
 }
 

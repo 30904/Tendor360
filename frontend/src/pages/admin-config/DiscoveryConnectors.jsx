@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import {
   Badge,
   Button,
@@ -137,6 +137,8 @@ const DiscoveryConnectors = () => {
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(emptyForm())
   const [seedingDemo, setSeedingDemo] = useState(false)
+  const [uploadingExcel, setUploadingExcel] = useState(false)
+  const fileInputRef = useRef(null)
 
   const loadConnectors = useCallback(async () => {
     setLoading(true)
@@ -309,6 +311,31 @@ const DiscoveryConnectors = () => {
       showToast.error(err.response?.data?.message || 'Discovery run failed')
     } finally {
       setRunningId(null)
+    }
+  }
+
+  const handleExcelUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file || !editingId) return
+
+    setUploadingExcel(true)
+    try {
+      const res = await discoveryConnectorsAPI.uploadExcelKeywords(editingId, file)
+      if (res.success) {
+        showToast.success(res.message || 'Keywords uploaded successfully')
+        setForm(prev => ({ 
+          ...prev, 
+          keywordFilePath: res.data.keywordFilePath,
+          excelKeywords: res.data.keywords 
+        }))
+      } else {
+        showToast.error(res.message || 'Upload failed')
+      }
+    } catch (err) {
+      showToast.error(err.response?.data?.message || 'Upload failed')
+    } finally {
+      setUploadingExcel(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
@@ -801,12 +828,85 @@ const DiscoveryConnectors = () => {
                     </Form.Group>
                   </Col>
                 </Row>
+                <Row>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Username CSS Selector (optional)</Form.Label>
+                      <Form.Control
+                        value={form.scrapingConfig.usernameSelector || ''}
+                        onChange={(e) => updateField('scrapingConfig.usernameSelector', e.target.value)}
+                        placeholder="e.g. #username or input[name='user']"
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Password CSS Selector (optional)</Form.Label>
+                      <Form.Control
+                        value={form.scrapingConfig.passwordSelector || ''}
+                        onChange={(e) => updateField('scrapingConfig.passwordSelector', e.target.value)}
+                        placeholder="e.g. #password or input[type='password']"
+                      />
+                    </Form.Group>
+                  </Col>
+                </Row>
+                <Form.Group className="mb-3">
+                  <Form.Label>Item Link CSS Selector *</Form.Label>
+                  <Form.Control
+                    value={form.scrapingConfig.itemLinkSelector || 'a[href]'}
+                    onChange={(e) => updateField('scrapingConfig.itemLinkSelector', e.target.value)}
+                    placeholder="e.g. .titleline > a"
+                  />
+                  <Form.Text className="text-muted">Target the specific clickable links for the tenders (defaults to all links).</Form.Text>
+                </Form.Group>
                 <Form.Group className="mb-3">
                   <Form.Label>Keywords (comma-separated)</Form.Label>
                   <Form.Control
                     value={form.keywordsText}
                     onChange={(e) => updateField('keywordsText', e.target.value)}
                   />
+                </Form.Group>
+                
+                <Form.Group className="mb-3">
+                  <Form.Label>Excel Keywords Upload (.xlsx)</Form.Label>
+                  {editingId ? (
+                    <div className="d-flex align-items-center gap-3">
+                      <Form.Control
+                        type="file"
+                        accept=".xlsx, .xls"
+                        ref={fileInputRef}
+                        onChange={handleExcelUpload}
+                        disabled={uploadingExcel}
+                      />
+                      {uploadingExcel && <Spinner size="sm" animation="border" />}
+                      {form.keywordFilePath && !uploadingExcel && (
+                        <Badge bg="success" className="d-flex align-items-center gap-1 px-2 py-1">
+                          <CheckCircle2 size={12} /> File Attached
+                        </Badge>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-muted small p-2 bg-light rounded border">
+                      Please save the connector first before uploading an Excel file.
+                    </div>
+                  )}
+                  {form.keywordFilePath && (
+                    <div className="mt-2">
+                      <Form.Text className="text-muted d-block mb-2">
+                        Current file: <strong>{form.keywordFilePath.split('/').pop().split('\\').pop()}</strong>
+                      </Form.Text>
+                      {form.excelKeywords && form.excelKeywords.length > 0 && (
+                        <div className="p-2 bg-light border rounded" style={{ maxHeight: '150px', overflowY: 'auto' }}>
+                          <small className="d-block text-muted mb-1 fw-bold">Loaded Keywords ({form.excelKeywords.length}):</small>
+                          <div className="d-flex flex-wrap gap-1">
+                            {form.excelKeywords.map((kw, i) => (
+                              <Badge bg="secondary" key={i} pill className="fw-normal">{kw}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </Form.Group>
               </>
             )}
