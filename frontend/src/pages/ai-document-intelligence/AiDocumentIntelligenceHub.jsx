@@ -335,7 +335,7 @@ const AiDocumentIntelligenceHub = () => {
                           {field.validated ? 'Validated' : 'Review'}
                         </Badge>
                       </div>
-                      <div>{String(field.fieldValue)}</div>
+                      <div>{typeof field.fieldValue === 'object' && field.fieldValue !== null ? JSON.stringify(field.fieldValue) : String(field.fieldValue)}</div>
                       <div className="extracted-field__meta">
                         {field.confidence}% confidence
                       </div>
