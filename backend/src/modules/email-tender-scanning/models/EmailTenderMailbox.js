@@ -39,6 +39,18 @@ const emailTenderMailboxSchema = new mongoose.Schema(
         default: 'unknown'
       }
     },
+    provider: {
+      type: String,
+      enum: ['graph', 'imap', 'demo'],
+      default: 'demo'
+    },
+    imapConfig: {
+      host: { type: String, trim: true },
+      port: { type: Number, default: 993 },
+      tls: { type: Boolean, default: true },
+      user: { type: String, trim: true },
+      password: { type: String, trim: true }
+    },
     isDeleted: { type: Boolean, default: false }
   },
   { timestamps: true, collection: 'EmailTenderMailbox' }

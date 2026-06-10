@@ -1,14 +1,13 @@
 const Watchlist = require('../../../models/Watchlist');
 const TenderSource = require('../../../models/TenderSource');
-const Company = require('../../../models/Company');
-const ExcelKeywordLoaderService = require('../../tender-discovery/services/ExcelKeywordLoaderService');
+const GlobalKeyword = require('../../../models/GlobalKeyword');
 
 function normalizeKeyword(value) {
   return String(value || '').trim().toLowerCase();
 }
 
 async function loadKeywordsForCompany(companyId, extraKeywords = []) {
-  const [watchlists, emailSources, company] = await Promise.all([
+  const [watchlists, emailSources, globalKws] = await Promise.all([
     Watchlist.find({ companyId, status: 'active', isDeleted: false }).select('keywords').lean(),
     TenderSource.find({
       companyId,
@@ -18,22 +17,15 @@ async function loadKeywordsForCompany(companyId, extraKeywords = []) {
     })
       .select('keywords')
       .lean(),
-    Company.findById(companyId).select('settings.discovery').lean()
+    // Load from MongoDB GlobalKeyword collection instead of from disk
+    GlobalKeyword.find({ companyId }).select('keyword -_id').lean()
   ]);
 
   const set = new Set();
   watchlists.forEach((w) => (w.keywords || []).forEach((k) => set.add(normalizeKeyword(k))));
   emailSources.forEach((s) => (s.keywords || []).forEach((k) => set.add(normalizeKeyword(k))));
   extraKeywords.forEach((k) => set.add(normalizeKeyword(k)));
-
-  if (company?.settings?.discovery?.keywordFilePath) {
-    try {
-      const excelKeywords = await ExcelKeywordLoaderService.loadKeywordsFromFile(company.settings.discovery.keywordFilePath);
-      excelKeywords.forEach((k) => set.add(normalizeKeyword(k)));
-    } catch (err) {
-      console.error('Failed to load global excel keywords for company', companyId, err);
-    }
-  }
+  globalKws.forEach((g) => set.add(normalizeKeyword(g.keyword)));
 
   return [...set].filter(Boolean);
 }

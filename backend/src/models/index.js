@@ -36,5 +36,6 @@ require('../modules/integrations/models/IntegrationConnector');
 require('../modules/integrations/models/ApiCredential');
 require('../modules/integrations/models/WebhookSubscription');
 require('./TenderSource');
+require('./GlobalKeyword');
 
 console.log('✅ All models loaded and schemas registered');

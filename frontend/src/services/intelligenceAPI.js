@@ -40,5 +40,6 @@ export const intelligenceAPI = {
   listDocumentIntelligence: () => api.get('/intelligence/documents/intelligence'),
   getPlatformConfig: () => api.get('/intelligence/platform/config'),
   uploadGlobalKeywords: (formData) => api.post('/intelligence/platform/global-keywords/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
-  deleteGlobalKeywords: () => api.delete('/intelligence/platform/global-keywords')
+  deleteGlobalKeywords: () => api.delete('/intelligence/platform/global-keywords'),
+  getGlobalKeywords: () => api.get('/intelligence/platform/global-keywords')
 }

@@ -67,6 +67,13 @@ const MODULE_SECTIONS = [
         path: '/admin-config/data-tools',
         color: 'warning',
       },
+      {
+        id: 'keyword-management',
+        title: 'Keyword Management',
+        description: 'Upload Excel keyword lists parsed into MongoDB for email scanning and AI matching.',
+        path: '/admin-config/global-settings',
+        color: 'success',
+      },
     ],
   },
   {

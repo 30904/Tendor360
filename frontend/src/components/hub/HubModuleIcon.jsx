@@ -750,7 +750,9 @@ const HUB_MODULE_ICONS = {
   'eprocurement-adapters': IcEprocAdapter,
   'intelligence-platform': IcIntelPlatform,
   retention: IcRetention,
-  'ai-copilot': IcAIRFPCopilot
+  'ai-copilot': IcAIRFPCopilot,
+  'global-settings': IcDataTools,
+  'keyword-management': IcDiscoverySavedSearches
 }
 
 export function HubModuleIcon ({ moduleId }) {

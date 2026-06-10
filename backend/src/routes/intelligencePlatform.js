@@ -98,6 +98,8 @@ router.get('/governance/dashboard', requireAuth, controller.getGovernanceDashboa
 router.get('/documents/intelligence', requireAuth, controller.listDocumentIntelligence);
 router.get('/platform/config', requireAuth, controller.getPlatformConfig);
 
+router.get('/platform/global-keywords', requireAuth, requireRoles('SYSTEM ADMINISTRATOR'), controller.getGlobalKeywords);
+
 router.post(
   '/platform/global-keywords/upload',
   requireAuth,

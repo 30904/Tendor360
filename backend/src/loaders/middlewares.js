@@ -11,6 +11,9 @@ const mongoose = require('mongoose');
 const setupMiddlewares = (app) => {
   console.log('🔧 Setting up middlewares...');
   
+  // Trust the first proxy (e.g. Nginx) to fix express-rate-limit X-Forwarded-For issues
+  app.set('trust proxy', 1);
+  
   // Security middleware
   app.use(helmet({
     contentSecurityPolicy: {

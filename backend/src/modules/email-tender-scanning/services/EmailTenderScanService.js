@@ -4,6 +4,7 @@ const Tender = require('../../../models/Tender');
 const { extractLinks, buildLinkSections } = require('../utils/extractLinks');
 const keywordScanner = require('./EmailKeywordScanner');
 const graphMail = require('./MicrosoftGraphMailService');
+const imapMail = require('./ImapMailService');
 const { recordFailureWithNotification } = require('./FailureNotificationService');
 const AutomationFailure = require('../../automation/models/AutomationFailure');
 
@@ -199,7 +200,15 @@ class EmailTenderScanService {
     }
 
     message.processedAt = new Date();
-    await message.save();
+    try {
+      await message.save();
+    } catch (saveError) {
+      if (saveError.name === 'VersionError') {
+        console.warn(`VersionError ignored for message ${message._id} (already processed concurrently)`);
+      } else {
+        throw saveError;
+      }
+    }
     return message;
   }
 
@@ -215,7 +224,33 @@ class EmailTenderScanService {
     let ingested = 0;
 
     try {
-    if (graphMail.isGraphConfigured()) {
+    if (mailbox.provider === 'imap') {
+      // --- IMAP path ---
+      console.log(`📬 Using IMAP for mailbox: ${mailbox.email}`);
+      const remote = await imapMail.fetchImapMessages(mailbox);
+      for (const item of remote) {
+        // Dedup by our synthetic graphMessageId (imap-uid-<email>-<uid>)
+        const existing = await EmailTenderMessage.findOne({
+          companyId,
+          graphMessageId: item.graphMessageId
+        });
+        if (existing) {
+          console.log(`⏭️  Skipping already-processed message: ${item.subject}`);
+          continue;
+        }
+        console.log(`📩 Processing new email: "${item.subject}"`);
+        const doc = await EmailTenderMessage.create({
+          companyId,
+          mailboxId: mailbox._id,
+          ...item,
+          actions: [],
+          decision: 'pending'
+        });
+        await this.processMessageDoc(doc, keywords, mailbox);
+        ingested += 1;
+      }
+    } else if (mailbox.provider === 'graph' || graphMail.isGraphConfigured()) {
+      // --- Microsoft Graph path ---
       const remote = await graphMail.fetchInboxMessages(mailbox, companyId);
       for (const item of remote) {
         const existing = await EmailTenderMessage.findOne({
@@ -235,6 +270,7 @@ class EmailTenderScanService {
         ingested += 1;
       }
     } else {
+      // --- Demo / pending re-scan path ---
       const pending = await EmailTenderMessage.find({
         companyId,
         mailboxId: mailbox._id,

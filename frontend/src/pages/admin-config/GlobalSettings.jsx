@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Container, Row, Col, Card, Button, Breadcrumb, Form, Spinner, Alert, Badge } from 'react-bootstrap'
-import { ArrowLeft, Settings, UploadCloud, CheckCircle2, XCircle, Trash2, AlertCircle } from 'lucide-react'
+import { ArrowLeft, UploadCloud, CheckCircle2, Trash2, AlertCircle, Tag } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { intelligenceAPI } from '../../services/intelligenceAPI'
 import './GlobalSettings.scss'
@@ -10,8 +10,11 @@ const GlobalSettings = () => {
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState(null)
+  const [success, setSuccess] = useState(null)
   const [globalKeywordFile, setGlobalKeywordFile] = useState(null)
   const [selectedFile, setSelectedFile] = useState(null)
+  const [keywords, setKeywords] = useState([])
+  const [keywordsLoading, setKeywordsLoading] = useState(false)
 
   useEffect(() => {
     fetchConfig()
@@ -24,6 +27,11 @@ const GlobalSettings = () => {
       const res = await intelligenceAPI.getPlatformConfig()
       const keywordsData = res.data?.data?.globalKeywords
       setGlobalKeywordFile(keywordsData?.keywordFileName || null)
+
+      // Load stored keywords from MongoDB
+      if (keywordsData?.keywordFileName) {
+        fetchKeywords()
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load global settings')
     } finally {
@@ -31,9 +39,22 @@ const GlobalSettings = () => {
     }
   }
 
+  const fetchKeywords = async () => {
+    setKeywordsLoading(true)
+    try {
+      const res = await intelligenceAPI.getGlobalKeywords()
+      setKeywords(res.data?.data?.keywords || [])
+    } catch {
+      // Non-critical
+    } finally {
+      setKeywordsLoading(false)
+    }
+  }
+
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
       setSelectedFile(e.target.files[0])
+      setSuccess(null)
     }
   }
 
@@ -41,15 +62,18 @@ const GlobalSettings = () => {
     if (!selectedFile) return
     setUploading(true)
     setError(null)
+    setSuccess(null)
     try {
       const formData = new FormData()
       formData.append('file', selectedFile)
       const res = await intelligenceAPI.uploadGlobalKeywords(formData)
       setGlobalKeywordFile(res.data?.data?.keywordFileName)
+      setSuccess(`✅ ${res.data?.data?.keywordCount || 0} keywords successfully parsed and stored in MongoDB!`)
       setSelectedFile(null)
-      // Reset the file input
       const fileInput = document.getElementById('global-keyword-file-input')
       if (fileInput) fileInput.value = ''
+      // Reload keyword list
+      fetchKeywords()
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to upload keyword file')
     } finally {
@@ -58,11 +82,13 @@ const GlobalSettings = () => {
   }
 
   const handleDelete = async () => {
-    if (!window.confirm('Are you sure you want to remove the global keyword file?')) return
+    if (!window.confirm('Are you sure you want to remove all global keywords? This will affect email scanning matching.')) return
     setLoading(true)
     try {
       await intelligenceAPI.deleteGlobalKeywords()
       setGlobalKeywordFile(null)
+      setKeywords([])
+      setSuccess(null)
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to delete keyword file')
     } finally {
@@ -88,9 +114,9 @@ const GlobalSettings = () => {
           <Col>
             <div className="page-header">
               <div className="header-content">
-                <Button 
-                  variant="outline-secondary" 
-                  size="sm" 
+                <Button
+                  variant="outline-secondary"
+                  size="sm"
                   onClick={() => navigate('/admin-config')}
                   className="back-btn"
                 >
@@ -112,12 +138,17 @@ const GlobalSettings = () => {
             {error}
           </Alert>
         )}
+        {success && (
+          <Alert variant="success" onClose={() => setSuccess(null)} dismissible>
+            {success}
+          </Alert>
+        )}
 
         <Row>
-          <Col md={8} lg={6}>
+          <Col md={8} lg={7}>
             <Card className="mb-4">
               <Card.Header>
-                <h5 className="mb-0">Global Discovery Settings</h5>
+                <h5 className="mb-0">Tenant Master Keyword List</h5>
               </Card.Header>
               <Card.Body>
                 {loading ? (
@@ -127,9 +158,8 @@ const GlobalSettings = () => {
                   </div>
                 ) : (
                   <div>
-                    <h6 className="mb-3">Tenant Master Keyword List</h6>
                     <p className="text-muted small mb-4">
-                      Upload an Excel (.xlsx) file containing keywords to be used universally across all Web Scraping Connectors and Email Scanning bots. Connectors without a specific keyword file will automatically fall back to this master list.
+                      Upload an Excel (.xlsx) file containing keywords. All keywords will be parsed and stored directly in MongoDB, used universally across all Email Scanning and Web Scraping connectors.
                     </p>
 
                     {globalKeywordFile ? (
@@ -137,8 +167,13 @@ const GlobalSettings = () => {
                         <div className="d-flex align-items-center">
                           <CheckCircle2 size={20} className="text-success me-2" />
                           <div>
-                            <strong>Master List Uploaded</strong>
+                            <strong>Master List Active</strong>
                             <div className="text-muted small">{globalKeywordFile}</div>
+                            {keywords.length > 0 && (
+                              <Badge bg="success" className="mt-1">
+                                {keywords.length} keywords in database
+                              </Badge>
+                            )}
                           </div>
                         </div>
                         <Button variant="outline-danger" size="sm" onClick={handleDelete} disabled={loading}>
@@ -153,29 +188,29 @@ const GlobalSettings = () => {
 
                     <Form.Group className="mb-3">
                       <Form.Label>{globalKeywordFile ? 'Replace Master List' : 'Upload Master List'}</Form.Label>
-                      <Form.Control 
-                        type="file" 
-                        accept=".xlsx, .xls" 
+                      <Form.Control
+                        type="file"
+                        accept=".xlsx, .xls"
                         onChange={handleFileChange}
                         id="global-keyword-file-input"
                       />
                       <Form.Text className="text-muted">
-                        File must be an Excel spreadsheet containing a "Keywords" column.
+                        Excel spreadsheet with keywords in the first column. All keywords will be stored in MongoDB.
                       </Form.Text>
                     </Form.Group>
 
-                    <Button 
-                      variant="primary" 
-                      onClick={handleUpload} 
+                    <Button
+                      variant="primary"
+                      onClick={handleUpload}
                       disabled={!selectedFile || uploading}
                     >
                       {uploading ? (
                         <>
-                          <Spinner size="sm" animation="border" className="me-2" /> Uploading...
+                          <Spinner size="sm" animation="border" className="me-2" /> Parsing & Storing...
                         </>
                       ) : (
                         <>
-                          <UploadCloud size={16} className="me-2" /> Upload Keywords
+                          <UploadCloud size={16} className="me-2" /> Upload & Parse Keywords
                         </>
                       )}
                     </Button>
@@ -183,6 +218,28 @@ const GlobalSettings = () => {
                 )}
               </Card.Body>
             </Card>
+
+            {/* Keyword Preview Card */}
+            {keywords.length > 0 && (
+              <Card className="mb-4">
+                <Card.Header className="d-flex align-items-center justify-content-between">
+                  <h5 className="mb-0">
+                    <Tag size={16} className="me-2" />
+                    Stored Keywords ({keywords.length})
+                  </h5>
+                  {keywordsLoading && <Spinner animation="border" size="sm" />}
+                </Card.Header>
+                <Card.Body style={{ maxHeight: '320px', overflowY: 'auto' }}>
+                  <div className="d-flex flex-wrap gap-2">
+                    {keywords.map((kw, i) => (
+                      <Badge key={i} bg="light" text="dark" className="border px-2 py-1" style={{ fontSize: '0.8rem' }}>
+                        {kw.keyword}
+                      </Badge>
+                    ))}
+                  </div>
+                </Card.Body>
+              </Card>
+            )}
           </Col>
         </Row>
       </Container>

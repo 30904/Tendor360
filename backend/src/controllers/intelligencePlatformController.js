@@ -31,6 +31,7 @@ const SavedSearch = require('../models/SavedSearch');
 const { buildConnectorCatalog, isConnectorConfigured } = require('../modules/intelligence/connectorStatus');
 const Company = require('../models/Company');
 const ExcelKeywordLoaderService = require('../modules/tender-discovery/services/ExcelKeywordLoaderService');
+const GlobalKeyword = require('../models/GlobalKeyword');
 
 exports.getDiscoveryDashboard = catchAsync(async (req, res) => {
   const companyId = req.companyId;
@@ -772,11 +773,15 @@ exports.uploadGlobalKeywords = catchAsync(async (req, res) => {
     return res.status(400).json({ success: false, message: 'No file uploaded' });
   }
 
+  let parsedKeywords;
   try {
-    // Validate that it can be parsed
-    await ExcelKeywordLoaderService.loadKeywordsFromFile(req.file.path);
+    parsedKeywords = await ExcelKeywordLoaderService.loadKeywordsFromFile(req.file.path, { skipLastSheet: true });
   } catch (error) {
     return res.status(400).json({ success: false, message: `Invalid Excel file: ${error.message}` });
+  }
+
+  if (!parsedKeywords.length) {
+    return res.status(400).json({ success: false, message: 'No keywords found in the uploaded file.' });
   }
 
   const company = await Company.findById(req.companyId);
@@ -784,20 +789,29 @@ exports.uploadGlobalKeywords = catchAsync(async (req, res) => {
     return res.status(404).json({ success: false, message: 'Company not found' });
   }
 
-  if (!company.settings.discovery) {
-    company.settings.discovery = {};
-  }
-  
+  // Save file reference to company settings
+  if (!company.settings.discovery) company.settings.discovery = {};
   company.settings.discovery.keywordFilePath = req.file.path;
   company.settings.discovery.keywordFileName = req.file.originalname;
-
   await company.save();
+
+  // Delete old keywords for this company and insert new ones
+  await GlobalKeyword.deleteMany({ companyId: req.companyId });
+  const docs = parsedKeywords.map((kw) => ({
+    companyId: req.companyId,
+    keyword: kw.toLowerCase().trim(),
+    source: 'excel_upload',
+    uploadedAt: new Date()
+  }));
+  await GlobalKeyword.insertMany(docs, { ordered: false }).catch(() => {}); // ignore dupe errors
 
   res.json({
     success: true,
-    message: 'Global keywords uploaded successfully',
+    message: `Global keywords uploaded successfully. ${parsedKeywords.length} keyword(s) stored.`,
     data: {
-      keywordFileName: req.file.originalname
+      keywordFileName: req.file.originalname,
+      keywordCount: parsedKeywords.length,
+      preview: parsedKeywords.slice(0, 10)
     }
   });
 });
@@ -814,8 +828,23 @@ exports.deleteGlobalKeywords = catchAsync(async (req, res) => {
     await company.save();
   }
 
+  // Also remove from MongoDB collection
+  await GlobalKeyword.deleteMany({ companyId: req.companyId });
+
   res.json({
     success: true,
     message: 'Global keywords deleted successfully'
+  });
+});
+
+exports.getGlobalKeywords = catchAsync(async (req, res) => {
+  const keywords = await GlobalKeyword.find({ companyId: req.companyId })
+    .sort({ keyword: 1 })
+    .select('keyword uploadedAt -_id')
+    .lean();
+
+  res.json({
+    success: true,
+    data: { keywords, count: keywords.length }
   });
 });

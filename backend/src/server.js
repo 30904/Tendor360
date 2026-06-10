@@ -68,8 +68,8 @@ async function startServer() {
 
     setupSchedulers();
 
-    // Seed database with initial data (development only)
-    if (process.env.NODE_ENV === 'development') {
+    // Seed database with initial data only if requested
+    if (process.env.NODE_ENV === 'development' && process.env.SEED_DB === 'true') {
       console.log('🌱 Seeding database with initial data...');
       try {
         const { seedAll } = require('./seed');
