@@ -1,0 +1,42 @@
+import api from './authAPI'
+
+export const intelligenceAPI = {
+  getDashboard: () => api.get('/intelligence/dashboard'),
+  getDiscoveryDashboard: () => api.get('/intelligence/discovery/dashboard'),
+  getDiscoveryJobs: (params) => api.get('/intelligence/discovery/jobs', { params }),
+  createDiscoveryJob: (body) => api.post('/intelligence/discovery/jobs', body),
+  getImportQueue: () => api.get('/intelligence/discovery/import-queue'),
+  getDiscoveryProspectingRtm: () => api.get('/intelligence/discovery/prospecting-rtm'),
+  getEmailTenderRtm: () => api.get('/intelligence/email-tender-scanning/rtm'),
+  getEmailTenderFeed: (params) => api.get('/intelligence/email-tender-scanning/feed', { params }),
+  seedEmailTenderDemo: () => api.post('/intelligence/email-tender-scanning/seed-demo'),
+  scanEmailTenders: (body) => api.post('/intelligence/email-tender-scanning/scan', body || {}),
+  runEmailDiscovery: (body) => api.post('/intelligence/email-tender-scanning/run-discovery', body || {}),
+  getEmailTenderFailures: (params) => api.get('/intelligence/email-tender-scanning/failures', { params }),
+  simulateEmailFailureDemo: () => api.post('/intelligence/email-tender-scanning/simulate-failure-demo'),
+  getDiscoveryMetadata: (params) => api.get('/intelligence/discovery/metadata', { params }),
+  getTenderIntelligenceRtm: () => api.get('/intelligence/tender-intelligence/rtm'),
+  getTenderIntelligenceFeed: (params) => api.get('/intelligence/tender-intelligence/feed', { params }),
+  runTenderIntelligence: (tenderId, body) =>
+    api.post(`/intelligence/tender-intelligence/${tenderId}/run`, body || {}),
+  getCrmAccountRtm: () => api.get('/intelligence/crm-account/rtm'),
+  getCrmValidationFeed: (params) => api.get('/intelligence/crm-account/feed', { params }),
+  seedCrmDemo: () => api.post('/intelligence/crm-account/seed-demo'),
+  lookupCrmAccount: (body) => api.post('/intelligence/crm-account/lookup', body),
+  validateTenderCrm: (tenderId) => api.post(`/intelligence/crm-account/${tenderId}/validate`),
+  validateAllCrm: (body) => api.post('/intelligence/crm-account/validate-all', body || {}),
+  getDiscoveryLogs: (jobId) => api.get(`/intelligence/discovery/jobs/${jobId}/logs`),
+  listWorkspaceOpportunities: () => api.get('/intelligence/workspace/opportunities'),
+  getWorkspace: (tenderId) => api.get(`/intelligence/workspace/${tenderId}`),
+  runScoring: (tenderId, body) => api.post(`/intelligence/scoring/opportunities/${tenderId}/run`, body),
+  listScores: () => api.get('/intelligence/scoring/opportunities'),
+  listGoNoGoReviews: () => api.get('/intelligence/go-no-go/reviews'),
+  upsertGoNoGoReview: (body) => api.post('/intelligence/go-no-go/reviews', body),
+  getAutomationConsole: () => api.get('/intelligence/automation/console'),
+  getIntegrationHub: () => api.get('/intelligence/integrations/hub'),
+  getGovernanceDashboard: () => api.get('/intelligence/governance/dashboard'),
+  runDocumentExtraction: (documentId, body) =>
+    api.post(`/intelligence/documents/${documentId}/extractions`, body),
+  listDocumentIntelligence: () => api.get('/intelligence/documents/intelligence'),
+  getPlatformConfig: () => api.get('/intelligence/platform/config')
+}

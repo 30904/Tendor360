@@ -1,0 +1,59 @@
+.respond-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.respond-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1.25rem;
+  background: linear-gradient(135deg, #fff 0%, #f4f8fe 100%);
+  border-bottom: 1px solid rgba(70, 120, 190, 0.15);
+  flex-wrap: wrap;
+}
+
+.respond-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.respond-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #4678be, #345c8e);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+}
+
+.respond-sub {
+  font-size: 0.72rem;
+  color: #7a889b;
+}
+
+.respond-nav a {
+  margin-right: 1rem;
+  font-weight: 600;
+  color: #345c8e;
+  text-decoration: none;
+}
+
+.respond-nav a.active {
+  color: #4678be;
+  text-decoration: underline;
+}
+
+.respond-main {
+  flex: 1;
+  padding: 1rem 1.25rem 2rem;
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}

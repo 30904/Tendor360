@@ -1,0 +1,54 @@
+{
+  "name": "tender360-backend",
+  "version": "1.0.0",
+  "description": "Tender360 Backend API",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "seed:dev": "node src/seed/dev-seed.js",
+    "seed:all": "node src/seed/index.js",
+    "seed:test": "node src/seed/testSeeders.js",
+    "seed:help": "node src/seed/runIndividualSeeders.js --help",
+    "seed:intelligence-demo": "node src/seed/seeders/intelligenceDemoSeeder.js",
+    "seed:sources-watchlists": "node src/seed/seeders/sourcesWatchlistsDemoSeeder.js",
+    "seed:medicare-connectors": "node src/seed/seeders/medicareDiscoveryConnectorsSeeder.js",
+    "seed:medicare-platform": "node src/seed/seeders/medicareDiscoveryConnectorsSeeder.js"
+  },
+  "dependencies": {
+    "axios": "^1.12.2",
+    "bcryptjs": "^2.4.3",
+    "compression": "^1.7.4",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.1.0",
+    "html-to-text": "^10.0.0",
+    "imap-simple": "^5.1.0",
+    "joi": "^17.11.0",
+    "jsonwebtoken": "^9.0.2",
+    "mailparser": "^3.9.9",
+    "mammoth": "^1.11.0",
+    "mongoose": "^8.0.3",
+    "mongoose-paginate-v2": "^1.9.1",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.7",
+    "openai": "^6.42.0",
+    "pdf-parse": "^1.1.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "nodemon": "^3.0.2"
+  },
+  "keywords": [
+    "tender",
+    "api",
+    "express",
+    "mongodb"
+  ],
+  "author": "Tender360 Team",
+  "license": "MIT"
+}

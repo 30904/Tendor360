@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520">
+  <rect width="900" height="520" fill="#0f172a"/>
+  <rect x="24" y="24" width="852" height="472" rx="12" fill="#1e293b" stroke="#334155"/>
+  <text x="48" y="72" fill="#f8fafc" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">BOT failure — ATS-010</text>
+  <text x="48" y="110" fill="#94a3b8" font-family="Segoe UI, Arial, sans-serif" font-size="14">Tender360 BOT failure capture (ATS-010)</text>
+  <text x="48" y="150" fill="#e2e8f0" font-family="Consolas, monospace" font-size="13">Requirement: ATS-010</text>
+  <text x="48" y="178" fill="#e2e8f0" font-family="Consolas, monospace" font-size="13">Source: email_scan</text>
+  <text x="48" y="206" fill="#e2e8f0" font-family="Consolas, monospace" font-size="13">Mailbox: nikhil@idmsinfotech.com</text>
+  <text x="48" y="234" fill="#e2e8f0" font-family="Consolas, monospace" font-size="13">Attempts: —</text>
+  <text x="48" y="262" fill="#e2e8f0" font-family="Consolas, monospace" font-size="13">Time: 2026-06-09T11:40:27.117Z</text>
+  <text x="48" y="290" fill="#e2e8f0" font-family="Consolas, monospace" font-size="13"></text>
+  <text x="48" y="318" fill="#e2e8f0" font-family="Consolas, monospace" font-size="13">Error: No matching document found for id &quot;6a27e3ef1e555fe0cf03bad1&quot; version 1 modifiedPaths &quot;scan, hasLinks, links, linkSections, decision, actions, processedAt&quot;</text>
+</svg>

@@ -1,0 +1,193 @@
+.discovery-connectors-page {
+  .intel-chart-card .card-body {
+    padding: 0;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  }
+
+  .intel-chart-card .card-header {
+    padding: 0.85rem 1.1rem;
+    background: rgba(255, 255, 255, 0.95) !important;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+  }
+
+  .discovery-connectors-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.65rem;
+    padding: 2rem;
+    color: #64748b;
+    font-size: 0.88rem;
+  }
+
+  .discovery-empty-state {
+    text-align: center;
+    padding: 3rem 2rem 3.5rem;
+    max-width: 480px;
+    margin: 0 auto;
+
+    &__icon {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 1.25rem;
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      background: linear-gradient(135deg, #4678be 0%, #5a8fd8 100%);
+      box-shadow: 0 14px 32px rgba(70, 120, 190, 0.35);
+    }
+
+    h3 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #345c8e;
+      margin-bottom: 0.65rem;
+    }
+
+    p {
+      color: #64748b;
+      font-size: 0.9rem;
+      line-height: 1.55;
+      margin-bottom: 1.5rem;
+    }
+
+    &__actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      justify-content: center;
+    }
+  }
+
+  .discovery-connectors-table-wrap {
+    overflow-x: auto;
+    border-radius: 0 0 16px 16px;
+  }
+
+  .discovery-connectors-table {
+    margin: 0;
+
+    thead th {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #64748b;
+      background: rgba(70, 120, 190, 0.06);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+      padding: 0.75rem 1rem;
+      white-space: nowrap;
+    }
+
+    tbody td {
+      padding: 0.85rem 1rem;
+      vertical-align: middle;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+      font-size: 0.88rem;
+    }
+
+    tbody tr:hover {
+      background: rgba(70, 120, 190, 0.04);
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+  }
+
+  .connector-name-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+    max-width: 260px;
+
+    &__title {
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    &__url {
+      font-size: 0.78rem;
+      color: #64748b;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  .connector-template-label {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.78rem;
+    color: #475569;
+    background: rgba(100, 116, 139, 0.08);
+    padding: 0.2rem 0.45rem;
+    border-radius: 4px;
+  }
+
+  .connector-sync-cell {
+    font-size: 0.82rem;
+    color: #64748b;
+    white-space: nowrap;
+  }
+
+  .discovery-mode-pill {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.35rem 0.55rem;
+    border-radius: 999px;
+
+    &--api {
+      background: rgba(70, 120, 190, 0.12) !important;
+      color: #1d4ed8 !important;
+      border: 1px solid rgba(70, 120, 190, 0.22);
+    }
+
+    &--web_scraping {
+      background: rgba(245, 158, 11, 0.12) !important;
+      color: #b45309 !important;
+      border: 1px solid rgba(245, 158, 11, 0.25);
+    }
+  }
+
+  .discovery-status-pill {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: capitalize;
+    padding: 0.35rem 0.55rem;
+    border-radius: 999px;
+    background: rgba(100, 116, 139, 0.1) !important;
+    color: #475569 !important;
+
+    &--active {
+      background: rgba(16, 185, 129, 0.12) !important;
+      color: #047857 !important;
+      border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+  }
+
+  .discovery-row-actions {
+    display: inline-flex;
+    gap: 0.35rem;
+    flex-wrap: nowrap;
+  }
+}
+
+.discovery-connectors-form h6 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 768px) {
+  .discovery-connectors-page .discovery-connectors-table {
+    font-size: 0.82rem;
+
+    thead th,
+    tbody td {
+      padding: 0.65rem 0.75rem;
+    }
+  }
+}

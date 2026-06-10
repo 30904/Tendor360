@@ -1,0 +1,194 @@
+.opportunity-workspace-hub {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 0 0.25rem 1.25rem;
+
+  .workspace-queue-search {
+    max-width: 22rem;
+    border-radius: 999px;
+    border-color: var(--intel-border);
+    background: #f8fbff;
+  }
+
+  .workspace-queue-panel .card-body {
+    padding-top: 1rem;
+  }
+
+  .workspace-opportunity-card {
+    height: 100%;
+    border-radius: 18px;
+    padding: 1rem 1.05rem;
+    border: 1px solid var(--intel-border);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--intel-shadow);
+    }
+
+    &__top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    &__title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #0f172a;
+      line-height: 1.3;
+    }
+
+    &__reference {
+      font-size: 0.78rem;
+      color: #64748b;
+      margin-top: 0.15rem;
+    }
+
+    &__score {
+      min-width: 64px;
+      border-radius: 14px;
+      padding: 0.45rem 0.55rem;
+      text-align: center;
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      background: rgba(59, 130, 246, 0.08);
+
+      span {
+        display: block;
+        font-size: 1.2rem;
+        font-weight: 700;
+        line-height: 1;
+        color: #1d4ed8;
+      }
+
+      small {
+        display: block;
+        margin-top: 0.2rem;
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #64748b;
+      }
+
+      &.tone-high {
+        border-color: rgba(16, 185, 129, 0.25);
+        background: rgba(16, 185, 129, 0.1);
+
+        span {
+          color: #047857;
+        }
+      }
+
+      &.tone-medium {
+        border-color: rgba(245, 158, 11, 0.25);
+        background: rgba(245, 158, 11, 0.1);
+
+        span {
+          color: #b45309;
+        }
+      }
+
+      &.tone-low {
+        border-color: rgba(239, 68, 68, 0.2);
+        background: rgba(239, 68, 68, 0.08);
+
+        span {
+          color: #b91c1c;
+        }
+      }
+    }
+
+    &__org {
+      font-size: 0.88rem;
+      color: #334155;
+      margin-bottom: 0.65rem;
+    }
+
+    &__meta {
+      display: grid;
+      gap: 0.25rem;
+      font-size: 0.8rem;
+      color: #64748b;
+      margin-bottom: 0.85rem;
+    }
+
+    &__footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 0.75rem;
+      margin-bottom: 0.9rem;
+    }
+
+    &__status {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      align-items: center;
+    }
+
+    &__deadline {
+      text-align: right;
+
+      .label {
+        display: block;
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #94a3b8;
+      }
+
+      strong {
+        display: block;
+        font-size: 0.88rem;
+        color: #0f172a;
+      }
+
+      .urgency {
+        display: block;
+        margin-top: 0.15rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+
+        &.soon {
+          color: #b45309;
+        }
+
+        &.overdue {
+          color: #b91c1c;
+        }
+
+        &.calm {
+          color: #64748b;
+        }
+      }
+    }
+
+    &__action {
+      width: 100%;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .workspace-queue-search {
+      max-width: 100%;
+    }
+
+    .workspace-opportunity-card__footer {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .workspace-opportunity-card__deadline {
+      text-align: left;
+    }
+  }
+}

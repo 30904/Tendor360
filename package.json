@@ -1,0 +1,36 @@
+{
+  "name": "tender360",
+  "version": "1.0.0",
+  "description": "World-class Tender Management System",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
+    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
+    "build": "cd frontend && npm run build",
+    "start": "cd backend && npm start",
+    "test": "playwright test",
+    "test:e2e": "playwright test --project=setup --project=auth --project=chromium",
+    "test:e2e:reuse": "node scripts/run-e2e-reuse.mjs",
+    "test:e2e:headed": "playwright test --headed --project=chromium",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:prod": "node scripts/run-e2e-prod.mjs",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:report": "playwright show-report",
+    "demo:smoke": "node scripts/demo-smoke.mjs"
+  },
+  "keywords": ["tender", "management", "mern", "react", "node"],
+  "author": "Tender360 Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "@playwright/test": "^1.40.0"
+  },
+  "workspaces": [
+    "frontend",
+    "backend"
+  ]
+}

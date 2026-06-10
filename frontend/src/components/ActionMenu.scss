@@ -1,0 +1,108 @@
+/* Table action center — Leads-style ellipsis menu (app-wide) */
+.table-action-center {
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+
+  &__trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid #c5d4e8;
+    border-radius: 6px;
+    background: #fff;
+    color: #4678be;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+
+    &:hover,
+    &.is-open {
+      background: #4678be;
+      border-color: #4678be;
+      color: #fff;
+    }
+
+    &:focus-visible {
+      outline: 2px solid rgba(70, 120, 190, 0.45);
+      outline-offset: 2px;
+    }
+
+    &:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+  }
+
+  &__menu {
+    position: fixed;
+    z-index: 999999;
+    min-width: 168px;
+    padding: 4px 0;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 14px;
+    border: none;
+    background: transparent;
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: #334155;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s ease;
+
+    &:hover:not(:disabled) {
+      background: #f1f5f9;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    &--danger {
+      color: #dc3545;
+
+      .table-action-center__item-icon {
+        color: #dc3545;
+      }
+
+      &:hover:not(:disabled) {
+        background: #fef2f2;
+        color: #b91c1c;
+      }
+    }
+  }
+
+  &__item-icon {
+    flex-shrink: 0;
+    color: #4678be;
+  }
+
+  &__item-label {
+    flex: 1;
+    line-height: 1.3;
+  }
+}
+
+/* Standard actions column in Bootstrap / custom tables */
+.table-actions-col,
+.datatable-actions-cell {
+  width: 56px;
+  min-width: 56px;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: middle !important;
+}

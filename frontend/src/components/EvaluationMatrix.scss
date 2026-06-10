@@ -1,0 +1,147 @@
+// ========================================
+// EVALUATION MATRIX - COMPONENT-SPECIFIC STYLES
+// ========================================
+// All common styles have been moved to /styles/components.scss
+// This file now only contains EvaluationMatrix-specific customizations
+
+.evaluation-matrix {
+  // Component-specific styles only
+  // All common patterns (cards, tables, buttons, forms, etc.) are now centralized
+  
+  // Responsive Design - Component-specific adjustments
+  @media (max-width: 768px) {
+    .matrix-controls {
+      .row {
+        .col:last-child {
+          margin-top: 1rem;
+        }
+      }
+
+      .d-flex {
+        flex-direction: column;
+        gap: 0.5rem;
+
+        .form-select {
+          width: 100% !important;
+        }
+      }
+    }
+
+    .view-mode-toggle {
+      .btn-group {
+        flex-direction: column;
+        width: 100%;
+
+        .btn {
+          &:first-child {
+            border-radius: 10px 10px 0 0;
+          }
+          
+          &:last-child {
+            border-radius: 0 0 10px 10px;
+          }
+        }
+      }
+    }
+
+    .matrix-table {
+      .thead-light th,
+      .matrix-row td {
+        padding: 0.75rem 0.5rem;
+        font-size: 0.85rem;
+      }
+
+      .btn-group {
+        flex-direction: column;
+        gap: 0.25rem;
+
+        .btn {
+          width: 100%;
+        }
+      }
+    }
+
+    .matrix-card {
+      margin-bottom: 1rem;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .matrix-controls {
+      padding: 1rem;
+
+      h5 {
+        font-size: 1.1rem;
+      }
+    }
+
+    .matrix-table {
+      .thead-light th,
+      .matrix-row td {
+        padding: 0.5rem 0.25rem;
+        font-size: 0.8rem;
+      }
+
+      .tender-info {
+        .tender-title {
+          font-size: 0.85rem;
+        }
+      }
+
+      .score-display {
+        .score-badge {
+          font-size: 0.75rem;
+          padding: 0.2rem 0.5rem;
+        }
+      }
+    }
+
+    .matrix-detail {
+      .modal-body {
+        padding: 1rem;
+      }
+
+      .summary-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+      }
+
+      .criterion-score-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+
+        .criterion-metrics {
+          text-align: left;
+          width: 100%;
+        }
+      }
+    }
+  }
+}
+
+// ========================================
+// CENTRALIZED STYLES REFERENCE
+// ========================================
+// The following styles are now centralized in /styles/components.scss:
+//
+// ✅ .matrix-controls - Matrix control panel styling
+// ✅ .view-mode-toggle - View mode toggle button group
+// ✅ .matrix-table - Table styling with hover effects
+// ✅ .score-display - Score badges and progress bars
+// ✅ .matrix-card - Card styling with hover effects
+// ✅ .score-summary - Score summary with circular display
+// ✅ .category-stats - Category statistics layout
+// ✅ .matrix-detail - Matrix detail view styling
+// ✅ .performance-indicator - Performance indicator layout
+// ✅ .criteria-preview - Criteria preview styling
+// ✅ .edit-evaluation-form - Edit form styling
+// ✅ .chart-placeholder - Chart placeholder styling
+// ✅ .loading-overlay - Loading overlay styling
+// ✅ .error-message, .success-message - Message styling
+// ✅ .alert-warning - Alert warning styling
+// ✅ .btn-group .btn - Button group enhancements
+//
+// All common patterns, animations, and utility classes are now centralized
+// for consistent styling across the entire application.

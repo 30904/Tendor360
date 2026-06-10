@@ -1,0 +1,328 @@
+// Global styles for Tender360
+// Bootstrap functions and variables are automatically imported by Vite
+
+// Import centralized component styles (buttons, forms, cards, etc.)
+@import './components.scss';
+
+// Table row action center (ellipsis menu)
+@import '../components/ActionMenu.scss';
+
+// Import standardized form styles (legacy - will be phased out)
+@import './forms.scss';
+
+// Import standardized typography styles
+@import './typography.scss';
+
+// Import standardized page structure styles
+@import './page-structure.scss';
+
+// Module hub landing pages (Tender Intelligence, Document Mgmt, etc.)
+@import './module-hub-shared.scss';
+@import './intelligence-demo.scss';
+
+// Theme-aligned scrollbars (main content; sidebar uses More flyout instead)
+@import './scrollbars.scss';
+
+// Custom CSS Variables for Thermo Fisher theme
+:root {
+  --primary-color: #4678be;
+  --secondary-color: #2b3a4a;
+  --accent-color: #f5f7fb;
+  --border-color: #e6e9ef;
+  --success-color: #1e9e6e;
+  --warning-color: #f5a524;
+  --danger-color: #e25555;
+  --text-primary: #2b3a4a;
+  --text-secondary: #6c757d;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --tm-radius: 0;
+}
+
+// Global font family
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+// KPI Card Styles
+.kpi-card {
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  }
+  
+  .kpi-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.5rem;
+  }
+}
+
+// Activity List Styles
+.activity-list {
+  .activity-item {
+    &:last-child {
+      border-bottom: none !important;
+    }
+  }
+}
+
+
+
+// Dashboard Styles
+.dashboard {
+  .card {
+    border: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 0;
+  }
+  
+  .card-header {
+    background-color: var(--bg-primary);
+    border-bottom: 1px solid var(--border-color);
+    border-radius: 0 !important;
+  }
+}
+
+// Global Tab Styling - Modern Pills Design
+.nav-tabs {
+  border-bottom: none !important;
+  
+  .nav-item {
+    margin-right: 0.75rem !important; // Add spacing between tab items
+  }
+  
+  .nav-link {
+    border: 2px solid #e9ecef !important;
+    border-radius: 0 !important;
+    margin-right: 0 !important;
+    padding: 0.75rem 1.5rem !important;
+    font-weight: 500 !important;
+    transition: all 0.3s ease !important;
+    color: #6c757d !important;
+    background: #f8f9fa !important;
+    position: relative !important;
+    white-space: nowrap !important; // Prevent text wrapping
+    display: inline-block !important; // Ensure proper display
+    
+    &:hover {
+      color: var(--primary-color) !important;
+      background: #e9ecef !important;
+      border-color: #dee2e6 !important;
+      transform: translateY(-1px);
+    }
+    
+    &.active {
+      color: white !important;
+      background: var(--primary-color) !important;
+      border-color: var(--primary-color) !important;
+      box-shadow: 0 4px 12px rgba(70, 120, 190, 0.3) !important;
+    }
+  }
+}
+
+// Global Dropdown Styling - Ensure all dropdowns match your theme
+.form-select,
+select {
+  font-family: 'Inter', sans-serif !important;
+  border-radius: 0 !important;
+  border: 2px solid var(--border-color) !important;
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  
+  // Ensure proper dropdown arrow styling
+  appearance: auto !important;
+  -webkit-appearance: auto !important;
+  -moz-appearance: auto !important;
+  
+  &:focus {
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 0.2rem rgba(70, 120, 190, 0.25) !important;
+  }
+  
+  option {
+    font-family: 'Inter', sans-serif !important;
+    background-color: var(--bg-primary) !important;
+    color: var(--text-primary) !important;
+    border-radius: 0 !important;
+    padding: 0.5rem !important;
+    
+    &:hover {
+      background-color: var(--primary-color) !important;
+      color: white !important;
+    }
+    
+    &:checked {
+      background-color: var(--primary-color) !important;
+      color: white !important;
+    }
+  }
+}
+
+// Bootstrap Dropdown Override
+.dropdown-menu {
+  font-family: 'Inter', sans-serif !important;
+  border-radius: 0 !important;
+  border: 1px solid var(--border-color) !important;
+  background-color: var(--bg-primary) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  
+  .dropdown-item {
+    font-family: 'Inter', sans-serif !important;
+    color: var(--text-primary) !important;
+    border-radius: 0 !important;
+    padding: 0.5rem 1rem !important;
+    transition: all 0.2s ease !important;
+    
+    &:hover,
+    &:focus {
+      background-color: var(--primary-color) !important;
+      color: white !important;
+    }
+    
+    &.active,
+    &:active {
+      background-color: var(--primary-color) !important;
+      color: white !important;
+    }
+  }
+}
+
+// Override Bootstrap's default tab styling
+.nav-tabs .nav-link.active,
+.nav-tabs .nav-item.show .nav-link {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  color: var(--primary-color) !important;
+}
+
+// Additional tab overrides for different tab implementations
+.nav-tabs .nav-item {
+  margin-bottom: 0 !important;
+}
+
+.nav-tabs .nav-link:not(.active) {
+  border-bottom: 2px solid transparent !important;
+}
+
+// Ensure tab content area styling
+.tab-content {
+  border: none !important;
+  background: transparent !important;
+}
+
+.tab-pane {
+  padding: 1.5rem 0 !important;
+}
+
+// Custom tab variants (if needed)
+.nav-tabs.underline-tabs {
+  .nav-link.active::after {
+    height: 4px !important;
+    background: linear-gradient(90deg, var(--primary-color) 0%, var(--secondary-color) 100%) !important;
+  }
+}
+
+// Utility Classes
+.text-primary { color: var(--primary-color) !important; }
+.text-secondary { color: var(--secondary-color) !important; }
+.bg-primary { background-color: var(--primary-color) !important; }
+.bg-secondary { background-color: var(--secondary-color) !important; }
+.border-primary { border-color: var(--primary-color) !important; }
+.border-secondary { border-color: var(--secondary-color) !important; }
+
+// Force tab spacing - Override any conflicting styles
+.nav-tabs .nav-item:not(:last-child) {
+  margin-right: 1rem !important;
+}
+
+.nav-tabs .nav-link {
+  margin-right: 0 !important;
+  white-space: nowrap !important;
+  display: inline-block !important;
+}
+
+// Simple Clean Tabs - Alternative Design
+.tabbed-pane-simple {
+  .nav-tabs {
+    border-bottom: 2px solid #e9ecef;
+    margin-bottom: 1.5rem;
+    
+    .nav-item {
+      margin-right: 2rem !important;
+    }
+    
+    .nav-link {
+      border: none !important;
+      background: transparent !important;
+      color: #6c757d !important;
+      padding: 1rem 0 !important;
+      font-weight: 500 !important;
+      white-space: nowrap !important;
+      display: inline-block !important;
+      position: relative !important;
+      transition: all 0.3s ease !important;
+      
+      &:hover {
+        color: var(--primary-color) !important;
+        background: transparent !important;
+      }
+      
+      &.active {
+        color: var(--primary-color) !important;
+        background: transparent !important;
+        font-weight: 600 !important;
+        
+        &::after {
+          content: '' !important;
+          position: absolute !important;
+          bottom: -2px !important;
+          left: 0 !important;
+          right: 0 !important;
+          height: 3px !important;
+          background: var(--primary-color) !important;
+          border-radius: 0 !important;
+        }
+      }
+    }
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .kpi-card {
+    margin-bottom: 1rem;
+  }
+  
+  // Mobile tab adjustments
+  .nav-tabs {
+    .nav-link {
+      padding: 0.75rem 1rem !important;
+      font-size: 0.9rem !important;
+    }
+  }
+}
+
+@media (max-width: 576px) {
+  .nav-tabs {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    
+    .nav-link {
+      white-space: nowrap !important;
+      min-width: auto !important;
+      padding: 0.5rem 0.75rem !important;
+    }
+  }
+}

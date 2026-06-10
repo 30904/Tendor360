@@ -1,0 +1,314 @@
+// ========================================
+// TYPOGRAPHY STANDARDIZATION
+// Primary Color: #4678be
+// ========================================
+
+// Color Variables for Typography
+$text-primary: #2b3a4a;        // Dark blue-gray for main headings
+$text-secondary: #495057;       // Medium gray for sub-headings
+$text-body: #6c757d;           // Light gray for body text
+$text-muted: #adb5bd;          // Very light gray for muted text
+$text-success: #1e9e6e;        // Success text color
+$text-warning: #f5a524;        // Warning text color
+$text-danger: #e25555;         // Danger text color
+$text-info: #4678be;           // Primary color for info text
+$text-white: #ffffff;          // White text for dark backgrounds
+$text-light: #f8f9fa;         // Very light text
+
+// ========================================
+// HEADING HIERARCHY
+// ========================================
+
+// H1 - Main Page Titles
+h1, .h1 {
+  color: $text-primary;
+  font-weight: 700;
+  font-size: 2.5rem;
+  line-height: 1.2;
+  margin-bottom: 1rem;
+  // Font family is now centralized globally
+  letter-spacing: -0.02em;
+  
+  // Large display variant
+  &.display-1, &.display-2, &.display-3, &.display-4 {
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+  
+  // White text variant for dark backgrounds
+  &.text-white, &.text-light {
+    color: $text-white !important;
+    text-shadow: 0 2px 15px rgba(0, 0, 0, 0.4);
+  }
+}
+
+// H2 - Section Titles
+h2, .h2 {
+  color: $text-primary;
+  font-weight: 600;
+  font-size: 2rem;
+  line-height: 1.3;
+  margin-bottom: 0.875rem;
+  // Font family is now centralized globally
+  letter-spacing: -0.01em;
+  
+  // White text variant for dark backgrounds
+  &.text-white, &.text-light {
+    color: $text-white !important;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  }
+}
+
+// H3 - Sub-section Titles
+h3, .h3 {
+  color: $text-primary;
+  font-weight: 600;
+  font-size: 1.75rem;
+  line-height: 1.4;
+  margin-bottom: 0.75rem;
+  // Font family is now centralized globally
+  
+  // White text variant for dark backgrounds
+  &.text-white, &.text-light {
+    color: $text-white !important;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.3);
+  }
+}
+
+// H4 - Card Titles
+h4, .h4 {
+  color: $text-secondary;
+  font-weight: 600;
+  font-size: 1.5rem;
+  line-height: 1.4;
+  margin-bottom: 0.625rem;
+  // Font family is now centralized globally
+  
+  // White text variant for dark backgrounds
+  &.text-white, &.text-light {
+    color: $text-white !important;
+  }
+}
+
+// H5 - Small Titles
+h5, .h5 {
+  color: $text-secondary;
+  font-weight: 500;
+  font-size: 1.25rem;
+  line-height: 1.5;
+  margin-bottom: 0.5rem;
+  // Font family is now centralized globally
+  
+  // White text variant for dark backgrounds
+  &.text-white, &.text-light {
+    color: $text-white !important;
+  }
+}
+
+// H6 - Micro Titles
+h6, .h6 {
+  color: $text-secondary;
+  font-weight: 500;
+  font-size: 1rem;
+  line-height: 1.5;
+  margin-bottom: 0.375rem;
+  // Font family is now centralized globally
+  
+  // White text variant for dark backgrounds
+  &.text-white, &.text-light {
+    color: $text-white !important;
+  }
+}
+
+// ========================================
+// PARAGRAPH & BODY TEXT
+// ========================================
+
+// Standard Paragraphs
+p {
+  color: $text-body;
+  font-weight: 400;
+  font-size: 1rem;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+  // Font family is now centralized globally
+  
+  // White text variant for dark backgrounds
+  &.text-white, &.text-light {
+    color: $text-white !important;
+    text-shadow: 0 1px 5px rgba(0, 0, 0, 0.3);
+  }
+  
+  // Lead paragraph
+  &.lead {
+    color: $text-secondary;
+    font-weight: 500;
+    font-size: 1.1rem;
+    line-height: 1.7;
+    margin-bottom: 1.25rem;
+  }
+  
+  // Small text
+  &.text-small {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    margin-bottom: 0.75rem;
+  }
+  
+  // Large text
+  &.text-large {
+    font-size: 1.125rem;
+    line-height: 1.6;
+    margin-bottom: 1.125rem;
+  }
+}
+
+// ========================================
+// TEXT UTILITY CLASSES
+// ========================================
+
+// Muted Text
+.text-muted {
+  color: $text-muted !important;
+  font-weight: 400;
+}
+
+// Success Text
+.text-success {
+  color: $text-success !important;
+  font-weight: 500;
+}
+
+// Warning Text
+.text-warning {
+  color: $text-warning !important;
+  font-weight: 500;
+}
+
+// Danger Text
+.text-danger {
+  color: $text-danger !important;
+  font-weight: 500;
+}
+
+// Info Text
+.text-info {
+  color: $text-info !important;
+  font-weight: 500;
+}
+
+// Primary Text
+.text-primary {
+  color: $text-primary !important;
+  font-weight: 600;
+}
+
+// Secondary Text
+.text-secondary {
+  color: $text-secondary !important;
+  font-weight: 500;
+}
+
+// Light Text
+.text-light {
+  color: $text-light !important;
+  font-weight: 400;
+}
+
+// White Text
+.text-white {
+  color: $text-white !important;
+  font-weight: 400;
+}
+
+// ========================================
+// SPECIAL TEXT ELEMENTS
+// ========================================
+
+// Page Titles
+.page-title {
+  @extend h1;
+  margin-bottom: 1.5rem;
+}
+
+// Page Subtitles
+.page-subtitle {
+  @extend .lead;
+  margin-bottom: 2rem;
+}
+
+// Card Titles
+.card-title {
+  @extend h4;
+  margin-bottom: 0.75rem;
+}
+
+// Section Titles
+.section-title {
+  @extend h3;
+  margin-bottom: 1rem;
+}
+
+// Feature Titles
+.feature-title {
+  @extend h5;
+  margin-bottom: 0.75rem;
+}
+
+// ========================================
+// RESPONSIVE TYPOGRAPHY
+// ========================================
+
+@media (max-width: 768px) {
+  h1, .h1 { font-size: 2rem; }
+  h2, .h2 { font-size: 1.75rem; }
+  h3, .h3 { font-size: 1.5rem; }
+  h4, .h4 { font-size: 1.25rem; }
+  h5, .h5 { font-size: 1.125rem; }
+  h6, .h6 { font-size: 1rem; }
+  
+  p.lead { font-size: 1rem; }
+  p.text-large { font-size: 1rem; }
+}
+
+@media (max-width: 576px) {
+  h1, .h1 { font-size: 1.75rem; }
+  h2, .h2 { font-size: 1.5rem; }
+  h3, .h3 { font-size: 1.25rem; }
+  h4, .h4 { font-size: 1.125rem; }
+  h5, .h5 { font-size: 1rem; }
+  h6, .h6 { font-size: 0.875rem; }
+}
+
+// ========================================
+// ACCESSIBILITY ENHANCEMENTS
+// ========================================
+
+// Focus states for screen readers
+h1:focus, h2:focus, h3:focus, h4:focus, h5:focus, h6:focus {
+  outline: 2px solid $text-info;
+  outline-offset: 2px;
+}
+
+// High contrast mode support
+@media (prefers-contrast: high) {
+  h1, h2, h3, h4, h5, h6 {
+    color: #000000 !important;
+  }
+  
+  p {
+    color: #333333 !important;
+  }
+  
+  .text-muted {
+    color: #666666 !important;
+  }
+}
+
+// Reduced motion support
+@media (prefers-reduced-motion: reduce) {
+  h1, h2, h3, h4, h5, h6, p {
+    animation: none !important;
+    transition: none !important;
+  }
+}

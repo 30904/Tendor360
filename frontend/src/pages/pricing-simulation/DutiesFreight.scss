@@ -1,0 +1,27 @@
+.duties-freight-page {
+  .page-header {
+    .header-content {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+
+      .back-btn {
+        flex-shrink: 0;
+      }
+
+      .header-text {
+        flex: 1;
+        
+        h2 {
+          margin: 0;
+          color: #4678be;
+          font-family: 'Inter', sans-serif;
+        }
+        
+        p {
+          margin: 0.5rem 0 0 0;
+        }
+      }
+    }
+  }
+}

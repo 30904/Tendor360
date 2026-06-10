@@ -1,0 +1,119 @@
+.tender-discovery-subpage {
+  .rtm-req-card {
+    border: 1px solid rgba(70, 120, 190, 0.12);
+    border-radius: 14px;
+    padding: 1rem 1.1rem;
+    height: 100%;
+    background: #fff;
+    transition: box-shadow 0.2s ease;
+
+    &:hover {
+      box-shadow: 0 8px 24px rgba(52, 92, 142, 0.1);
+    }
+
+    &__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    &__id {
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      color: #4678be;
+    }
+
+    h4 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #345c8e;
+      margin-bottom: 0.35rem;
+    }
+
+    p {
+      font-size: 0.82rem;
+      color: #64748b;
+      margin: 0;
+      line-height: 1.45;
+    }
+  }
+
+  .rtm-status-pill {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+
+    &--active {
+      background: rgba(34, 197, 94, 0.15);
+      color: #15803d;
+    }
+    &--ready {
+      background: rgba(70, 120, 190, 0.12);
+      color: #345c8e;
+    }
+    &--pending {
+      background: rgba(251, 191, 36, 0.2);
+      color: #b45309;
+    }
+  }
+
+  .discovery-data-table {
+    thead th {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #64748b;
+      border-bottom-width: 1px;
+    }
+
+    tbody td {
+      font-size: 0.88rem;
+      vertical-align: middle;
+    }
+  }
+
+  .discovery-stat-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    background: rgba(70, 120, 190, 0.08);
+    color: #345c8e;
+  }
+
+  .metadata-card {
+    border: 1px solid rgba(70, 120, 190, 0.1);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    background: #fafcff;
+
+    &__title {
+      font-weight: 700;
+      color: #345c8e;
+      margin-bottom: 0.25rem;
+    }
+
+    &__ref {
+      font-size: 0.78rem;
+      color: #64748b;
+    }
+
+    &__summary {
+      font-size: 0.85rem;
+      color: #475569;
+      margin-top: 0.5rem;
+      line-height: 1.5;
+    }
+  }
+}

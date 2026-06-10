@@ -1,0 +1,94 @@
+.support-ticket-upload {
+  &__dropzone {
+    border: 2px dashed rgba(70, 120, 190, 0.35);
+    border-radius: 12px;
+    padding: 1.25rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    background: linear-gradient(180deg, rgba(70, 120, 190, 0.04), #fff);
+    transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+
+    &:hover:not(.is-disabled),
+    &.is-active {
+      border-color: #4678be;
+      background: rgba(70, 120, 190, 0.06);
+      box-shadow: 0 4px 14px rgba(70, 120, 190, 0.1);
+    }
+
+    &.is-disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  &__icon {
+    color: #4678be;
+    margin-bottom: 0.35rem;
+  }
+
+  &__title {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #2b3a4a;
+  }
+
+  &__sub,
+  &__types {
+    display: block;
+    font-size: 0.75rem;
+    color: #64748b;
+  }
+
+  &__types {
+    margin-top: 0.25rem;
+  }
+
+  &__list {
+    list-style: none;
+    margin: 0.75rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid rgba(70, 120, 190, 0.15);
+    border-radius: 8px;
+    background: #fafbfd;
+  }
+
+  &__meta {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__name {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: #2b3a4a;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__size {
+    font-size: 0.7rem;
+    color: #64748b;
+  }
+
+  &__remove {
+    color: #64748b !important;
+
+    &:hover {
+      color: #dc3545 !important;
+    }
+  }
+}

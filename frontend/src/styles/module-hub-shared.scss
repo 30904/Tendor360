@@ -1,0 +1,121 @@
+// Shared typography + description clamp for module hub / landing cards
+.app-module-hub {
+  .page-header {
+    h2 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+    }
+
+    p.text-muted {
+      font-size: 0.8125rem;
+      line-height: 1.35;
+      margin-bottom: 0;
+    }
+  }
+
+  .module-card {
+    .card-body {
+      padding: 1rem 1.05rem;
+    }
+
+    .module-content {
+      gap: 0.75rem;
+      align-items: flex-start;
+    }
+
+    .module-leading {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.5rem;
+      width: 100%;
+    }
+
+    .module-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+
+      .hub-module-svg,
+      .rfp-module-svg {
+        width: 24px;
+        height: 24px;
+        display: block;
+      }
+    }
+
+    .module-status-badge {
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .module-title {
+      font-size: 0.92rem;
+      font-weight: 600;
+      margin: 0 0 0.2rem;
+      line-height: 1.25;
+      color: #345c8e;
+    }
+
+    .module-description {
+      font-size: 0.78rem;
+      line-height: 1.35;
+      color: #6c757d;
+      margin: 0;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-height: calc(0.78rem * 1.35 * 2);
+    }
+
+    .module-metric {
+      margin-top: 0.45rem;
+      font-size: 0.76rem;
+      font-weight: 600;
+      color: #4678be;
+    }
+
+    .module-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 0.85rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid rgba(148, 163, 184, 0.22);
+      font-size: 0.76rem;
+      font-weight: 600;
+      color: #64748b;
+    }
+
+    .module-arrow svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    &.is-disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .module-card {
+      .card-body {
+        padding: 0.9rem;
+      }
+
+      .module-title {
+        font-size: 0.88rem;
+      }
+
+      .module-description {
+        font-size: 0.77rem;
+      }
+    }
+  }
+}

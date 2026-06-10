@@ -1,0 +1,170 @@
+// Global flat UI: remove rounded corners from application surfaces.
+:root {
+  --bs-border-radius: 0;
+  --bs-border-radius-sm: 0;
+  --bs-border-radius-lg: 0;
+  --bs-border-radius-xl: 0;
+  --bs-border-radius-xxl: 0;
+  --bs-border-radius-pill: 0;
+  --bs-border-radius-2xl: 0;
+  --tm-radius: 0;
+}
+
+button,
+input,
+select,
+textarea,
+optgroup,
+fieldset,
+legend,
+label,
+.btn,
+.btn-group > .btn,
+.btn-group-vertical > .btn,
+.form-control,
+.form-select,
+.form-check-input,
+.form-range,
+.input-group,
+.input-group-text,
+.input-group > .form-control,
+.input-group > .form-select,
+.dropdown-menu,
+.dropdown-item,
+.dropdown-toggle,
+.card,
+.card-header,
+.card-body,
+.card-footer,
+.modal-content,
+.modal-header,
+.modal-body,
+.modal-footer,
+.table,
+.table > :not(caption) > * > *,
+.nav-tabs,
+.nav-tabs .nav-link,
+.nav-pills,
+.nav-pills .nav-link,
+.badge,
+.alert,
+.toast,
+.toast-header,
+.toast-body,
+.Toastify__toast,
+.pagination,
+.page-link,
+.list-group,
+.list-group-item,
+.popover,
+.popover-header,
+.popover-body,
+.accordion,
+.accordion-item,
+.accordion-button,
+.accordion-body,
+.offcanvas,
+.offcanvas-header,
+.offcanvas-body,
+.progress,
+.progress-bar,
+.breadcrumb,
+.breadcrumb-item,
+.chip,
+.intel-chip,
+.intel-premium-kpi,
+.intel-cinematic-hero,
+.intel-chart-card,
+.intel-executive-modal__content,
+.intel-executive-modal__header,
+.intel-executive-modal__footer,
+.intel-executive-modal__detail-card,
+.intel-executive-modal__icon,
+.intel-executive-modal__insight,
+.intel-executive-modal__section,
+.kpi-card,
+.kpi-card .kpi-icon,
+.datatable-container,
+.datatable-toolbar,
+.datatable-filter,
+.react-datepicker,
+.react-datepicker__header,
+.react-datepicker__day,
+.react-datepicker__month-container,
+.react-datepicker__time-container,
+.react-datepicker__time-box,
+.react-datepicker__input-container input,
+.rdtPicker,
+.rdtPicker td,
+.rdtPicker th,
+section,
+[class*='section'],
+[class*='card'],
+[class*='panel'],
+[class*='modal'],
+[class*='hub'],
+[class*='tile'],
+[class*='chip'],
+[class*='pill'],
+[class*='badge'],
+[class*='dropdown'],
+[class*='picker'],
+[class*='calendar'],
+[class*='table'],
+[class*='form'],
+[class*='input'],
+[class*='btn'],
+[class*='kpi'],
+[class*='intel-'] {
+  border-radius: 0 !important;
+}
+
+.table thead th,
+.table th,
+.datatable-table .datatable-th {
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  font-size: 13px !important;
+}
+
+.table td,
+.datatable-table .datatable-cell,
+.datatable-table tbody td {
+  font-size: 13px !important;
+}
+
+// Selection controls — match table action trigger stroke (Bootstrap loads after index.scss)
+.form-check-input {
+  width: 1.125rem !important;
+  height: 1.125rem !important;
+  min-width: 1.125rem !important;
+  min-height: 1.125rem !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 1px solid #4678be !important;
+  background-color: #ffffff !important;
+  cursor: pointer;
+  flex-shrink: 0;
+  vertical-align: middle;
+  box-shadow: none !important;
+
+  &:checked {
+    background-color: #4678be !important;
+    border-color: #4678be !important;
+  }
+
+  &:focus {
+    border-color: #4678be !important;
+    box-shadow: 0 0 0 0.2rem rgba(70, 120, 190, 0.25) !important;
+    outline: none;
+  }
+
+  &:hover:not(:disabled) {
+    border-color: #4678be !important;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}

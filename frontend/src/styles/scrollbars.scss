@@ -1,0 +1,72 @@
+// Tender360 theme scrollbars (primary blue palette)
+@mixin tm-scrollbar($size: 8px) {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(70, 120, 190, 0.55) rgba(70, 120, 190, 0.1);
+
+  &::-webkit-scrollbar {
+    width: $size;
+    height: $size;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: rgba(70, 120, 190, 0.08);
+    border-radius: 999px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: linear-gradient(
+      180deg,
+      rgba(70, 120, 190, 0.75) 0%,
+      rgba(43, 58, 74, 0.85) 100%
+    );
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(
+      180deg,
+      rgba(70, 120, 190, 0.95) 0%,
+      rgba(43, 58, 74, 1) 100%
+    );
+    background-clip: padding-box;
+  }
+
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
+html,
+body,
+.page-content,
+.main-content,
+.modal-body,
+.table-responsive {
+  @include tm-scrollbar(8px);
+}
+
+[data-theme='dark'] {
+  html,
+  body,
+  .page-content,
+  .main-content,
+  .modal-body,
+  .table-responsive {
+    scrollbar-color: rgba(90, 143, 216, 0.55) rgba(255, 255, 255, 0.08);
+
+    &::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: linear-gradient(
+        180deg,
+        rgba(90, 143, 216, 0.8) 0%,
+        rgba(43, 58, 74, 0.95) 100%
+      );
+      background-clip: padding-box;
+    }
+  }
+}

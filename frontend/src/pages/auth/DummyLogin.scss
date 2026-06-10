@@ -1,0 +1,299 @@
+// Dummy Login Page Styles - Simple & Clean Design (Original Version)
+.dummy-login-page {
+  min-height: 100vh;
+  background: #1e40af; // Solid blue background
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  display: flex;
+  align-items: center;
+}
+
+// Main Card Container
+.main-card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  display: flex;
+  overflow: hidden;
+  width: 100%;
+  min-height: 600px;
+}
+
+// Left Panel - Branding
+.branding-panel {
+  background: white;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  
+  .brand-content {
+    text-align: center;
+    
+    .brand-title {
+      font-size: 3rem;
+      font-weight: 700;
+      color: #1e40af; // Dark blue
+      margin-bottom: 1rem;
+    }
+    
+    .brand-subtitle {
+      font-size: 1.2rem;
+      color: #6b7280; // Light gray
+      margin: 0;
+      font-weight: 400;
+    }
+  }
+}
+
+// Right Panel - Login Form
+.login-panel {
+  background: #1e40af; // Dark blue background
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  
+  .login-container {
+    width: 100%;
+    max-width: 350px;
+    color: white;
+  }
+}
+
+// Form Header
+.form-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  
+  .form-icon {
+    width: 48px;
+    height: 48px;
+    background: #8b5cf6; // Purple circular icon
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
+    font-size: 1.5rem;
+    color: white;
+  }
+  
+  .welcome-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 0.5rem;
+  }
+  
+  .welcome-subtitle {
+    font-size: 1rem;
+    color: #e5e7eb; // Light white
+    margin: 0;
+    font-weight: 400;
+  }
+}
+
+// Form Styles
+.login-form {
+  .form-group {
+    .form-label {
+      font-weight: 600;
+      color: white;
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+    }
+    
+    .form-control {
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      padding: 0.75rem;
+      font-size: 1rem;
+      color: white;
+      
+      &::placeholder {
+        color: rgba(255, 255, 255, 0.6);
+      }
+      
+      &:focus {
+        background: rgba(255, 255, 255, 0.15);
+        border-color: #8b5cf6;
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+        outline: none;
+        color: white;
+      }
+    }
+  }
+}
+
+// Form Options
+.form-options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  
+  .form-check-label {
+    font-weight: 500;
+    color: white;
+    font-size: 0.9rem;
+  }
+  
+  .forgot-password {
+    color: #8b5cf6;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.9rem;
+    
+    &:hover {
+      color: #a78bfa;
+      text-decoration: underline;
+    }
+  }
+}
+
+// Sign In Button
+.signin-button {
+  background: #8b5cf6; // Purple button
+  border: none;
+  border-radius: 8px;
+  padding: 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  
+  &:hover {
+    background: #7c3aed;
+  }
+}
+
+// Demo Credentials
+.demo-credentials {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1rem;
+  
+  .demo-header {
+    margin-bottom: 0.75rem;
+    
+    span {
+      font-weight: 600;
+      color: white;
+      font-size: 0.9rem;
+    }
+  }
+  
+  .demo-accounts {
+    .demo-account {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      padding: 0.5rem 0.75rem;
+      margin-bottom: 0.5rem;
+      font-size: 0.8rem;
+      color: #e5e7eb;
+      
+      &:last-child {
+        margin-bottom: 0;
+      }
+      
+      strong {
+        color: white;
+        font-weight: 600;
+      }
+    }
+  }
+}
+
+// Responsive Design
+@media (max-width: 1199.98px) {
+  .main-card {
+    flex-direction: column;
+    min-height: auto;
+  }
+  
+  .branding-panel {
+    padding: 2rem;
+    
+    .brand-content {
+      .brand-title {
+        font-size: 2.5rem;
+      }
+      
+      .brand-subtitle {
+        font-size: 1.1rem;
+      }
+    }
+  }
+  
+  .login-panel {
+    padding: 2rem;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .dummy-login-page {
+    padding: 1rem;
+  }
+  
+  .main-card {
+    border-radius: 12px;
+  }
+  
+  .branding-panel {
+    padding: 1.5rem;
+    
+    .brand-content {
+      .brand-title {
+        font-size: 2rem;
+      }
+      
+      .brand-subtitle {
+        font-size: 1rem;
+      }
+    }
+  }
+  
+  .login-panel {
+    padding: 1.5rem;
+    
+    .login-container {
+      max-width: 100%;
+    }
+  }
+  
+  .form-header {
+    .welcome-title {
+      font-size: 1.5rem;
+    }
+    
+    .welcome-subtitle {
+      font-size: 0.9rem;
+    }
+  }
+}
+
+@media (max-width: 575.98px) {
+  .branding-panel {
+    padding: 1rem;
+  }
+  
+  .login-panel {
+    padding: 1rem;
+  }
+  
+  .form-options {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .demo-credentials {
+    .demo-accounts .demo-account {
+      word-break: break-all;
+    }
+  }
+}
