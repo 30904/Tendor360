@@ -1,7 +1,7 @@
 /**
  * Build runtime connector config from a TenderSource document.
  */
-function buildConnectorConfigFromSource(source = {}) {
+function buildConnectorConfigFromSource(source = {}, company = null) {
   const discovery = source.discoveryConfig || {};
   const auth = source.authCredentials || {};
   const scraping = source.scrapingConfig || {};
@@ -38,7 +38,7 @@ function buildConnectorConfigFromSource(source = {}) {
     itemLinkSelector: scraping.itemLinkSelector || 'a[href]',
     parsingConfig: source.parsingConfig || {},
     keywords: source.keywords || [],
-    keywordFilePath: source.keywordFilePath || null,
+    keywordFilePath: source.keywordFilePath || company?.settings?.discovery?.keywordFilePath || null,
     sourceName: source.name
   };
 }

@@ -40,8 +40,9 @@ const testConnection = async (req, res) => {
       sourcePayload = source.toObject();
     }
 
+    const company = await Company.findById(companyId).select('settings.discovery').lean();
     const connectorType = resolveConnectorType(sourcePayload);
-    let config = buildConnectorConfigFromSource(sourcePayload);
+    let config = buildConnectorConfigFromSource(sourcePayload, company);
 
     if (connectorType === 'sam_gov' && !config.apiKey) {
       config.apiKey = process.env.SAM_GOV_API_KEY;

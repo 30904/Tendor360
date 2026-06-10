@@ -147,6 +147,10 @@ const companySchema = new mongoose.Schema({
       customReports: { type: Boolean, default: false },
       apiAccess: { type: Boolean, default: false },
       whiteLabel: { type: Boolean, default: false }
+    },
+    discovery: {
+      keywordFilePath: String,
+      keywordFileName: String
     }
   },
   

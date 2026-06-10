@@ -29,6 +29,8 @@ const TenderDiscoveryJob = require('../modules/tender-discovery/models/TenderDis
 const TenderSource = require('../models/TenderSource');
 const SavedSearch = require('../models/SavedSearch');
 const { buildConnectorCatalog, isConnectorConfigured } = require('../modules/intelligence/connectorStatus');
+const Company = require('../models/Company');
+const ExcelKeywordLoaderService = require('../modules/tender-discovery/services/ExcelKeywordLoaderService');
 
 exports.getDiscoveryDashboard = catchAsync(async (req, res) => {
   const companyId = req.companyId;
@@ -741,10 +743,11 @@ exports.listDocumentIntelligence = catchAsync(async (req, res) => {
 });
 
 exports.getPlatformConfig = catchAsync(async (req, res) => {
-  const [connectors, profiles, providers] = await Promise.all([
+  const [connectors, profiles, providers, company] = await Promise.all([
     buildConnectorCatalog(req.companyId),
     ScoringProfile.find({ companyId: req.companyId, isDeleted: false }).lean(),
-    Promise.resolve(aiOrchestrator.listProviders())
+    Promise.resolve(aiOrchestrator.listProviders()),
+    Company.findById(req.companyId).select('settings.discovery').lean()
   ]);
 
   res.json({
@@ -753,10 +756,66 @@ exports.getPlatformConfig = catchAsync(async (req, res) => {
       connectors,
       scoringProfiles: profiles,
       aiProviders: providers,
+      globalKeywords: {
+        keywordFileName: company?.settings?.discovery?.keywordFileName || null
+      },
       scheduler: {
         enabled: Boolean(discoveryScheduler.timer),
         intervalMs: discoveryScheduler.intervalMs
       }
     }
+  });
+});
+
+exports.uploadGlobalKeywords = catchAsync(async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: 'No file uploaded' });
+  }
+
+  try {
+    // Validate that it can be parsed
+    await ExcelKeywordLoaderService.loadKeywordsFromFile(req.file.path);
+  } catch (error) {
+    return res.status(400).json({ success: false, message: `Invalid Excel file: ${error.message}` });
+  }
+
+  const company = await Company.findById(req.companyId);
+  if (!company) {
+    return res.status(404).json({ success: false, message: 'Company not found' });
+  }
+
+  if (!company.settings.discovery) {
+    company.settings.discovery = {};
+  }
+  
+  company.settings.discovery.keywordFilePath = req.file.path;
+  company.settings.discovery.keywordFileName = req.file.originalname;
+
+  await company.save();
+
+  res.json({
+    success: true,
+    message: 'Global keywords uploaded successfully',
+    data: {
+      keywordFileName: req.file.originalname
+    }
+  });
+});
+
+exports.deleteGlobalKeywords = catchAsync(async (req, res) => {
+  const company = await Company.findById(req.companyId);
+  if (!company) {
+    return res.status(404).json({ success: false, message: 'Company not found' });
+  }
+
+  if (company.settings.discovery) {
+    company.settings.discovery.keywordFilePath = null;
+    company.settings.discovery.keywordFileName = null;
+    await company.save();
+  }
+
+  res.json({
+    success: true,
+    message: 'Global keywords deleted successfully'
   });
 });

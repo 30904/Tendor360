@@ -157,7 +157,7 @@ class WebScrapeConnector extends BaseConnector {
 
     try {
       const page = await context.newPage();
-      const response = await page.goto(loginUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      const response = await page.goto(loginUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
       
       const status = response ? response.status() : 200;
       if (status >= 400) {

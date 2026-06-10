@@ -2,6 +2,9 @@ const express = require('express');
 const { requireAuth, requireRoles } = require('../middlewares/auth');
 const controller = require('../controllers/intelligencePlatformController');
 const emailTenderController = require('../controllers/emailTenderScanningController');
+const multer = require('multer');
+
+const upload = multer({ dest: 'uploads/' });
 
 const router = express.Router();
 const managerRoles = ['TENDER MANAGER', 'SYSTEM ADMINISTRATOR', 'REVIEWER', 'APPROVER'];
@@ -94,5 +97,20 @@ router.post('/integrations/connectors', requireAuth, requireRoles('SYSTEM ADMINI
 router.get('/governance/dashboard', requireAuth, controller.getGovernanceDashboard);
 router.get('/documents/intelligence', requireAuth, controller.listDocumentIntelligence);
 router.get('/platform/config', requireAuth, controller.getPlatformConfig);
+
+router.post(
+  '/platform/global-keywords/upload',
+  requireAuth,
+  requireRoles('SYSTEM ADMINISTRATOR'),
+  upload.single('file'),
+  controller.uploadGlobalKeywords
+);
+
+router.delete(
+  '/platform/global-keywords',
+  requireAuth,
+  requireRoles('SYSTEM ADMINISTRATOR'),
+  controller.deleteGlobalKeywords
+);
 
 module.exports = router;

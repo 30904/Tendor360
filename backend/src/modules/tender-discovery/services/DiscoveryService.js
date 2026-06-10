@@ -1,5 +1,6 @@
 const Tender = require('../../../models/Tender');
 const TenderSource = require('../../../models/TenderSource');
+const Company = require('../../../models/Company');
 const TenderDiscoveryJob = require('../models/TenderDiscoveryJob');
 const TenderDiscoveryLog = require('../models/TenderDiscoveryLog');
 const TenderImportBatch = require('../models/TenderImportBatch');
@@ -297,7 +298,8 @@ class DiscoveryService {
         });
         if (source) {
           connectorType = resolveConnectorType(source);
-          connectorConfig = buildConnectorConfigFromSource(source);
+          const company = await Company.findById(job.companyId).select('settings.discovery').lean();
+          connectorConfig = buildConnectorConfigFromSource(source, company);
           job.lookbackHours = connectorConfig.lookbackHours || 24;
           batch.lookbackHours = job.lookbackHours;
           await job.save();

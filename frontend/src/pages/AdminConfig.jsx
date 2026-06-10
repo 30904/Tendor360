@@ -19,6 +19,13 @@ const MODULE_SECTIONS = [
         color: 'primary',
       },
       {
+        id: 'global-settings',
+        title: 'Global Settings',
+        description: 'Configure tenant-wide master keywords and system preferences.',
+        path: '/admin-config/global-settings',
+        color: 'info',
+      },
+      {
         id: 'user-management',
         title: 'User Management',
         description: 'Users, invitations, resets, and org assignments.',
