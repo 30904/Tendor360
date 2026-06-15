@@ -1,169 +1,175 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Row, Col, Button, Form, Table, Badge, Modal, Alert } from 'react-bootstrap'
+import { Row, Col, Button, Form, Table, Badge, Modal, Alert, InputGroup } from 'react-bootstrap'
+import { useDispatch, useSelector } from 'react-redux'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
-import { Search, Plus, Edit, Calculator, FileText, Brain, CheckCircle, DollarSign, TrendingUp, BarChart } from 'lucide-react'
+import { Search, Plus, Edit, Calculator, FileText, Brain, CheckCircle, DollarSign, TrendingUp, BarChart, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import TableActionsCell from '../../components/TableActionsCell'
 import { buildTableActions, runTableAction } from '../../utils/tableActions'
+import { fetchPricingScenarios, createPricingScenario, predictAIPricing, selectPricingScenarios, selectPricingStats, selectPricingLoading, deletePricingScenario } from '../../store/slices/pricingSlice'
+import { fetchEvaluations, selectEvaluations } from '../../store/slices/evaluationSlice'
+import { userHasAnyRole } from '../../utils/roles'
 import './Scenarios.scss'
 
 const Scenarios = () => {
   const navigate = useNavigate()
-  const [scenarios, setScenarios] = useState([])
+  const dispatch = useDispatch()
+  
+  const scenarios = useSelector(selectPricingScenarios)
+  const stats = useSelector(selectPricingStats)
+  const loading = useSelector(selectPricingLoading)
+  const evaluations = useSelector(selectEvaluations)
+  const { user } = useSelector(state => state.auth)
+
+  // Filter evaluations to only show APPROVED decisions that were BID, AND don't already have a scenario
+  const availableTenders = useMemo(() => {
+    if (!evaluations) return [];
+    const usedTenderIds = new Set(scenarios?.map(s => s.tenderId?._id || s.tenderId) || []);
+    return evaluations
+      .filter(ev => ev.decision === 'BID' && ev.status === 'APPROVED' && ev.tenderId && !usedTenderIds.has(ev.tenderId._id))
+      .map(ev => ev.tenderId); // Extract the populated tender object
+  }, [evaluations, scenarios]);
+
   const [searchTerm, setSearchTerm] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [showViewModal, setShowViewModal] = useState(false)
   const [selectedScenario, setSelectedScenario] = useState(null)
-  const [stats, setStats] = useState({})
+
+  // Form State
+  const [selectedTenderId, setSelectedTenderId] = useState('')
+  const [winProbability, setWinProbability] = useState(50)
+  const [aiRecommendation, setAiRecommendation] = useState(null)
+  const [isPredicting, setIsPredicting] = useState(false)
+  const [items, setItems] = useState([
+    { name: '', description: '', quantity: 1, unit: 'hrs', cost: 0, price: 0 }
+  ])
 
   useEffect(() => {
-    setScenarios([
-      {
-        id: 1,
-        name: 'Base Case Scenario',
-        description: 'Standard pricing scenario with baseline assumptions',
-        tenderId: 'TEN-2024-001',
-        client: 'Ministry of Transport',
-        status: 'Active',
-        createdDate: '2024-01-15',
-        lastModified: '2024-01-20',
-        basePrice: 15000000,
-        currency: 'USD',
-        margin: 12.5,
-        winProbability: 75,
-        aiOptimization: 'Optimized for competitive positioning',
-        aiConfidence: 88,
-        variables: [
-          'Material costs: $8.5M',
-          'Labor costs: $4.2M',
-          'Equipment: $1.8M',
-          'Overhead: $0.5M'
-        ],
-        assumptions: [
-          'Standard material pricing',
-          'Normal labor rates',
-          '6-month project duration',
-          'No major risk factors'
-        ]
-      },
-      {
-        id: 2,
-        name: 'Aggressive Pricing',
-        description: 'Competitive pricing scenario to win market share',
-        tenderId: 'TEN-2024-002',
-        client: 'Health Ministry',
-        status: 'Active',
-        createdDate: '2024-01-10',
-        lastModified: '2024-01-18',
-        basePrice: 12000000,
-        currency: 'USD',
-        margin: 8.0,
-        winProbability: 85,
-        aiOptimization: 'High win probability with reduced margins',
-        aiConfidence: 92,
-        variables: [
-          'Material costs: $7.8M',
-          'Labor costs: $3.5M',
-          'Equipment: $1.5M',
-          'Overhead: $0.2M'
-        ],
-        assumptions: [
-          'Bulk material discounts',
-          'Efficient labor utilization',
-          '5-month project duration',
-          'Acceptable risk tolerance'
-        ]
-      },
-      {
-        id: 3,
-        name: 'Premium Quality',
-        description: 'High-quality scenario with premium pricing',
-        tenderId: 'TEN-2024-003',
-        client: 'City Development Authority',
-        status: 'Draft',
-        createdDate: '2024-01-05',
-        lastModified: '2024-01-12',
-        basePrice: 18000000,
-        currency: 'USD',
-        margin: 18.0,
-        winProbability: 45,
-        aiOptimization: 'Premium positioning for quality-focused clients',
-        aiConfidence: 78,
-        variables: [
-          'Premium materials: $10.5M',
-          'Skilled labor: $5.2M',
-          'Advanced equipment: $2.1M',
-          'Quality overhead: $0.2M'
-        ],
-        assumptions: [
-          'Premium material specifications',
-          'Highly skilled workforce',
-          '8-month project duration',
-          'Quality-first approach'
-        ]
-      }
-    ])
+    dispatch(fetchPricingScenarios({}))
+    dispatch(fetchEvaluations({})) // Fetch evaluations to filter down to approved bids
+  }, [dispatch])
 
-    setStats({
-      totalScenarios: 3,
-      active: 2,
-      draft: 1,
-      avgMargin: 12.8,
-      avgWinProbability: 68,
-      aiConfidence: 86,
-      totalValue: 45000000
-    })
-  }, [])
+  // Computed Form Totals
+  const formTotals = useMemo(() => {
+    let cost = 0;
+    let price = 0;
+    items.forEach(item => {
+      cost += (Number(item.cost) || 0) * (Number(item.quantity) || 1);
+      price += (Number(item.price) || 0) * (Number(item.quantity) || 1);
+    });
+    const margin = price - cost;
+    const marginPct = cost > 0 ? (margin / cost) * 100 : 0;
+    return { cost, price, margin, marginPct };
+  }, [items]);
+
+  const handleAddItem = () => {
+    setItems([...items, { name: '', description: '', quantity: 1, unit: 'hrs', cost: 0, price: 0 }])
+  }
+
+  const handleRemoveItem = (index) => {
+    setItems(items.filter((_, i) => i !== index))
+  }
+
+  const handleItemChange = (index, field, value) => {
+    const newItems = [...items]
+    newItems[index][field] = value
+    setItems(newItems)
+  }
+
+  const handleAIPredict = async () => {
+    if (!selectedTenderId) {
+      alert("Please select a Tender first.");
+      return;
+    }
+    setIsPredicting(true);
+    try {
+      const response = await dispatch(predictAIPricing(selectedTenderId)).unwrap();
+      if (response && response.prediction) {
+        setAiRecommendation(response.prediction);
+        setWinProbability(response.prediction.winProbability);
+      }
+    } catch (e) {
+      console.error(e);
+      alert("AI Prediction failed.");
+    } finally {
+      setIsPredicting(false);
+    }
+  }
+
+  const handleFormSubmit = (e) => {
+    e.preventDefault();
+    if (!selectedTenderId) {
+      alert("Please select a Tender");
+      return;
+    }
+    
+    // Filter out empty items
+    const validItems = items.filter(i => i.name.trim() !== '');
+    if (validItems.length === 0) {
+      alert("Please add at least one valid cost item.");
+      return;
+    }
+
+    const pricingData = {
+      tenderId: selectedTenderId,
+      winProbability: Number(winProbability),
+      items: validItems.map(i => ({
+        ...i,
+        quantity: Number(i.quantity),
+        cost: Number(i.cost),
+        price: Number(i.price)
+      }))
+    };
+
+    dispatch(createPricingScenario(pricingData)).then(() => {
+      dispatch(fetchPricingScenarios({}));
+      setShowModal(false);
+      resetForm();
+    });
+  }
+
+  const resetForm = () => {
+    setSelectedTenderId('');
+    setWinProbability(50);
+    setAiRecommendation(null);
+    setItems([{ name: '', description: '', quantity: 1, unit: 'hrs', cost: 0, price: 0 }]);
+  }
 
   const handleViewScenario = (scenario) => {
     setSelectedScenario(scenario)
-    setShowModal(true)
+    setShowViewModal(true)
   }
+
+  const handleDeleteScenario = (scenario) => {
+    if (window.confirm(`Are you sure you want to delete this pricing scenario for ${scenario.tenderId?.title}?`)) {
+      dispatch(deletePricingScenario(scenario._id));
+    }
+  }
+
+  const canEditPricing = userHasAnyRole(user, ['PRICING ANALYST', 'TENDER MANAGER', 'ADMIN', 'SYSTEM ADMINISTRATOR']);
 
   const getScenarioActions = () =>
     buildTableActions({
       onView: true,
-      onEdit: true,
-      onCopy: true,
-      labels: { copy: 'Duplicate' }
+      onEdit: false,
+      onDelete: canEditPricing,
+      onCopy: false
     })
 
   const handleScenarioAction = (action, scenario) => {
     runTableAction(action, scenario, {
       onView: handleViewScenario,
-      onEdit: handleViewScenario,
-      onCopy: handleDuplicateScenario
+      onDelete: handleDeleteScenario
     })
   }
 
-  const handleDuplicateScenario = (scenario) => {
-    if (window.confirm(`Are you sure you want to duplicate "${scenario.name}"?`)) {
-      const newScenario = {
-        ...scenario,
-        id: Date.now(),
-        name: `${scenario.name} (Copy)`,
-        status: 'Draft',
-        createdDate: new Date().toISOString().split('T')[0],
-        lastModified: new Date().toISOString().split('T')[0]
-      }
-      setScenarios(prev => [...prev, newScenario])
-    }
-  }
-
-  const getStatusBadge = (status) => {
-    const variants = {
-      'Active': 'success',
-      'Draft': 'warning',
-      'Archived': 'secondary',
-      'Completed': 'info'
-    }
-    return <Badge bg={variants[status] || 'secondary'}>{status}</Badge>
-  }
-
-  const formatCurrency = (amount, currency) => {
+  const formatCurrency = (amount, currency = 'USD') => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: currency
+      currency: currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
     }).format(amount)
   }
 
@@ -175,17 +181,17 @@ const Scenarios = () => {
   }
 
   const insightItems = useMemo(() => {
-    const m = (stats.totalValue || 0) / 1000000
+    const m = (stats?.totalValue || 0) / 1000000
     return [
       {
         title: 'AI scenario insight',
-        detail: `${stats.totalScenarios || 0} scenarios with $${m.toFixed(1)}M total value. Average win probability is ${stats.avgWinProbability}% with ${stats.aiConfidence}% AI confidence.`,
+        detail: `${stats?.totalScenarios || 0} scenarios with $${m.toFixed(1)}M total value. Average win probability is ${(stats?.avgWinProbability || 0).toFixed(1)}%.`,
         tone: 'info'
       }
     ]
-  }, [stats.totalScenarios, stats.avgWinProbability, stats.aiConfidence, stats.totalValue])
+  }, [stats])
 
-  const totalValueM = (stats.totalValue || 0) / 1000000
+  const totalValueM = (stats?.totalValue || 0) / 1000000
 
   return (
     <>
@@ -201,12 +207,11 @@ const Scenarios = () => {
         description="Create and manage pricing scenarios with AI-powered optimization"
         heroMeta="Scenario intelligence"
         outlookTitle="Scenario outlook"
-        outlookDescription={`${stats.totalScenarios || 0} scenarios — $${totalValueM.toFixed(1)}M book, ${stats.active || 0} active, ${stats.draft || 0} draft.`}
+        outlookDescription={`${stats?.totalScenarios || 0} scenarios — $${totalValueM.toFixed(1)}M book value.`}
         outlookChips={[
-          `${stats.totalScenarios || 0} total`,
+          `${stats?.totalScenarios || 0} total`,
           `$${totalValueM.toFixed(1)}M value`,
-          `${stats.avgWinProbability || 0}% avg win prob`,
-          `${stats.aiConfidence || 0}% AI confidence`
+          `${(stats?.avgWinProbability || 0).toFixed(0)}% avg win prob`
         ]}
         insights={insightItems}
         kpiTitle="Scenario signal board"
@@ -216,7 +221,7 @@ const Scenarios = () => {
             <Col xs={12} sm={6} xl={3}>
               <PremiumKpiCard
                 label="Total scenarios"
-                value={stats.totalScenarios || 0}
+                value={stats?.totalScenarios || 0}
                 hint="Modeled postures"
                 tone="intel"
                 trend="Library"
@@ -236,9 +241,9 @@ const Scenarios = () => {
             <Col xs={12} sm={6} xl={3}>
               <PremiumKpiCard
                 label="Avg win probability"
-                value={stats.avgWinProbability || 0}
+                value={(stats?.avgWinProbability || 0).toFixed(0)}
                 hint="Expected capture"
-                tone={(stats.avgWinProbability || 0) >= 70 ? 'success' : 'warning'}
+                tone={(stats?.avgWinProbability || 0) >= 70 ? 'success' : 'warning'}
                 trend="Momentum"
                 suffix="%"
                 icon={<TrendingUp size={20} />}
@@ -246,9 +251,9 @@ const Scenarios = () => {
             </Col>
             <Col xs={12} sm={6} xl={3}>
               <PremiumKpiCard
-                label="AI confidence"
-                value={stats.aiConfidence || 0}
-                hint="Model trust"
+                label="Avg Margin"
+                value={(stats?.avgMargin || 0).toFixed(1)}
+                hint="Calculated Profit"
                 tone="intel"
                 trend="Calibration"
                 suffix="%"
@@ -257,18 +262,14 @@ const Scenarios = () => {
             </Col>
           </Row>
         )}
-        tableTitle={`Pricing scenarios (${scenarios.length})`}
+        tableTitle={`Pricing scenarios (${scenarios?.length || 0})`}
         tableActions={(
-          <>
-            <Button variant="primary" className="me-2">
+          canEditPricing && (
+            <Button variant="primary" className="me-2" onClick={() => { resetForm(); setShowModal(true); }}>
               <Plus size={16} className="me-2" />
               New Scenario
             </Button>
-            <Button variant="outline-secondary">
-              <FileText size={16} className="me-2" />
-              Export Report
-            </Button>
-          </>
+          )
         )}
       >
         <Row className="mb-4">
@@ -287,156 +288,312 @@ const Scenarios = () => {
 
         <div className="table-responsive">
           <Table hover className="mb-0">
-                    <thead>
-                      <tr>
-                        <th>Scenario Details</th>
-                        <th>Client</th>
-                        <th>Base Price</th>
-                        <th>Margin</th>
-                        <th>Win Probability</th>
-                        <th>Status</th>
-                        <th className="table-actions-col">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {scenarios.filter(scenario => 
-                        !searchTerm || 
-                        scenario.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        scenario.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        scenario.tenderId.toLowerCase().includes(searchTerm.toLowerCase())
-                      ).map((scenario) => (
-                        <tr key={scenario.id}>
-                          <td>
-                            <div className="scenario-info">
-                              <h6 className="mb-1">{scenario.name}</h6>
-                              <p className="text-muted mb-1">{scenario.description}</p>
-                              <small className="text-muted">
-                                {scenario.tenderId} • Created: {scenario.createdDate}
-                              </small>
-                            </div>
-                          </td>
-                          <td>
-                            <div className="client-info">
-                              {scenario.client}
-                            </div>
-                          </td>
-                          <td>
-                            <div className="price-info">
-                              <div className="fw-medium">{formatCurrency(scenario.basePrice, scenario.currency)}</div>
-                            </div>
-                          </td>
-                          <td>
-                            <div className="margin-info">
-                              <Badge bg="primary">{scenario.margin}%</Badge>
-                            </div>
-                          </td>
-                          <td>
-                            <div className="win-probability">
-                              <Badge bg={getWinProbabilityColor(scenario.winProbability)}>
-                                {scenario.winProbability}%
-                              </Badge>
-                            </div>
-                          </td>
-                          <td>{getStatusBadge(scenario.status)}</td>
-                          <td className="table-actions-col">
-                            <TableActionsCell
-                              actions={getScenarioActions()}
-                              onAction={(action) => handleScenarioAction(action, scenario)}
-                            />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                </div>
+            <thead>
+              <tr>
+                <th>Tender</th>
+                <th>Client</th>
+                <th>Total Cost</th>
+                <th>Total Price</th>
+                <th>Margin</th>
+                <th>Win Probability</th>
+                <th className="table-actions-col">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {scenarios && scenarios.filter(scenario => 
+                !searchTerm || 
+                (scenario.tenderId?.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (scenario.tenderId?.organization || '').toLowerCase().includes(searchTerm.toLowerCase())
+              ).map((scenario) => (
+                <tr key={scenario._id}>
+                  <td>
+                    <div className="scenario-info">
+                      <h6 className="mb-1">{scenario.tenderId?.title || 'Unknown'}</h6>
+                      <small className="text-muted">
+                        Created: {new Date(scenario.createdAt).toLocaleDateString()}
+                      </small>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="client-info">
+                      {scenario.tenderId?.organization || 'Unknown'}
+                    </div>
+                  </td>
+                  <td>
+                    <div className="price-info">
+                      <div className="fw-medium text-muted">{formatCurrency(scenario.totals?.cost || 0, scenario.currency)}</div>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="price-info">
+                      <div className="fw-bold text-success">{formatCurrency(scenario.totals?.price || 0, scenario.currency)}</div>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="margin-info">
+                      <Badge bg="primary">{(scenario.totals?.marginPercentage || 0).toFixed(1)}%</Badge>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="win-probability">
+                      <Badge bg={getWinProbabilityColor(scenario.winProbability)}>
+                        {scenario.winProbability}%
+                      </Badge>
+                    </div>
+                  </td>
+                  <td className="table-actions-col">
+                    <TableActionsCell
+                      actions={getScenarioActions()}
+                      onAction={(action) => handleScenarioAction(action, scenario)}
+                    />
+                  </td>
+                </tr>
+              ))}
+              {(!scenarios || scenarios.length === 0) && (
+                <tr>
+                  <td colSpan="7" className="text-center py-4 text-muted">
+                    No scenarios created yet. Build one above!
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </Table>
+        </div>
       </ExecutiveCommandCenter>
 
-      <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
-          <Modal.Header closeButton>
-            <Modal.Title>
-              <Calculator size={20} className="me-2" />
-              Scenario Details - {selectedScenario?.name}
-            </Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            {selectedScenario && (
-              <div className="scenario-details">
-                <Row>
-                  <Col md={6}>
-                    <h6>Basic Information</h6>
-                    <p><strong>Tender ID:</strong> {selectedScenario.tenderId}</p>
-                    <p><strong>Client:</strong> {selectedScenario.client}</p>
-                    <p><strong>Status:</strong> {selectedScenario.status}</p>
-                    <p><strong>Created:</strong> {selectedScenario.createdDate}</p>
-                    <p><strong>Last Modified:</strong> {selectedScenario.lastModified}</p>
-                  </Col>
-                  <Col md={6}>
-                    <h6>Pricing Details</h6>
-                    <p><strong>Base Price:</strong> {formatCurrency(selectedScenario.basePrice, selectedScenario.currency)}</p>
-                    <p><strong>Margin:</strong> {selectedScenario.margin}%</p>
-                    <p><strong>Win Probability:</strong> {selectedScenario.winProbability}%</p>
-                    <p><strong>AI Confidence:</strong> {selectedScenario.aiConfidence}%</p>
-                  </Col>
-                </Row>
-                <hr />
-                <Row>
-                  <Col>
-                    <h6>Description</h6>
-                    <p>{selectedScenario.description}</p>
-                  </Col>
-                </Row>
-                <hr />
-                <Row>
-                  <Col md={6}>
-                    <h6>Cost Variables</h6>
-                    <ul className="variables-list">
-                      {selectedScenario.variables.map((variable, index) => (
-                        <li key={index} className="variable-item">
-                          <DollarSign size={14} className="me-2 text-success" />
-                          {variable}
-                        </li>
-                      ))}
-                    </ul>
-                  </Col>
-                  <Col md={6}>
-                    <h6>Key Assumptions</h6>
-                    <ul className="assumptions-list">
-                      {selectedScenario.assumptions.map((assumption, index) => (
-                        <li key={index} className="assumption-item">
-                          <CheckCircle size={14} className="me-2 text-primary" />
-                          {assumption}
-                        </li>
-                      ))}
-                    </ul>
-                  </Col>
-                </Row>
-                <hr />
-                <Row>
-                  <Col>
-                    <h6>AI Assessment & Optimization</h6>
-                    <Alert variant="info">
-                      <Brain size={16} className="me-2" />
-                      <strong>Optimization:</strong> {selectedScenario.aiOptimization}
-                    </Alert>
-                    <Alert variant="success">
-                      <BarChart size={16} className="me-2" />
-                      <strong>Confidence Level:</strong> {selectedScenario.aiConfidence}% based on historical data and market analysis
-                    </Alert>
-                  </Col>
-                </Row>
-              </div>
+      {/* NEW SCENARIO FORM MODAL */}
+      <Modal show={showModal} onHide={() => setShowModal(false)} size="xl" backdrop="static">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <Calculator size={20} className="me-2" />
+            Build New Pricing Scenario
+          </Modal.Title>
+        </Modal.Header>
+        <Form onSubmit={handleFormSubmit}>
+          <Modal.Body className="bg-light">
+            <Row className="mb-4">
+              <Col md={8}>
+                <Form.Group>
+                  <Form.Label className="fw-bold">Target Tender</Form.Label>
+                  <Form.Select 
+                    value={selectedTenderId} 
+                    onChange={(e) => setSelectedTenderId(e.target.value)}
+                    required
+                  >
+                    <option value="">-- Select an Approved Tender --</option>
+                    {availableTenders.map(t => (
+                      <option key={t._id} value={t._id}>{t.title} ({t.organization})</option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              <Col md={4} className="d-flex align-items-end">
+                <Button 
+                  variant="info" 
+                  className="w-100 fw-bold text-white shadow-sm" 
+                  onClick={handleAIPredict}
+                  disabled={isPredicting || !selectedTenderId}
+                >
+                  <Brain size={18} className="me-2" />
+                  {isPredicting ? 'Analyzing...' : '✨ AI Optimization'}
+                </Button>
+              </Col>
+            </Row>
+
+            {aiRecommendation && (
+              <Alert variant="success" className="mb-4 shadow-sm border-0">
+                <div className="d-flex align-items-center mb-2">
+                  <Brain size={20} className="me-2 text-success" />
+                  <h6 className="mb-0 fw-bold">AI Pricing Strategy (Confidence: {aiRecommendation.aiConfidence}%)</h6>
+                </div>
+                <p className="mb-2">{aiRecommendation.aiOptimization}</p>
+                <div className="d-flex gap-4 fw-bold">
+                  <span>Target Margin: <Badge bg="success" className="fs-6">{aiRecommendation.suggestedMarginPercentage}%</Badge></span>
+                  <span>Predicted Win Rate: <Badge bg="primary" className="fs-6">{aiRecommendation.winProbability}%</Badge></span>
+                </div>
+              </Alert>
             )}
+
+            <div className="bg-white p-4 rounded shadow-sm mb-4">
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <h6 className="fw-bold mb-0">Cost & Pricing Breakdown</h6>
+                <Button variant="outline-primary" size="sm" onClick={handleAddItem}>
+                  <Plus size={16} className="me-1" /> Add Line Item
+                </Button>
+              </div>
+              
+              <Table size="sm" responsive className="align-middle border">
+                <thead className="table-light">
+                  <tr>
+                    <th width="25%">Item Name</th>
+                    <th width="15%">Qty</th>
+                    <th width="15%">Unit Cost ($)</th>
+                    <th width="15%">Unit Price ($)</th>
+                    <th width="15%">Line Margin</th>
+                    <th width="5%"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item, index) => {
+                    const lineCost = (Number(item.quantity) || 0) * (Number(item.cost) || 0);
+                    const linePrice = (Number(item.quantity) || 0) * (Number(item.price) || 0);
+                    const lineMargin = linePrice - lineCost;
+                    const lineMarginPct = lineCost > 0 ? (lineMargin / lineCost) * 100 : 0;
+                    
+                    return (
+                      <tr key={index}>
+                        <td>
+                          <Form.Control 
+                            size="sm" 
+                            placeholder="e.g. Senior Architect" 
+                            value={item.name} 
+                            onChange={(e) => handleItemChange(index, 'name', e.target.value)} 
+                            required 
+                          />
+                        </td>
+                        <td>
+                          <Form.Control 
+                            size="sm" 
+                            type="number" 
+                            min="1" 
+                            value={item.quantity} 
+                            onChange={(e) => handleItemChange(index, 'quantity', e.target.value)} 
+                            required 
+                          />
+                        </td>
+                        <td>
+                          <Form.Control 
+                            size="sm" 
+                            type="number" 
+                            min="0" 
+                            value={item.cost} 
+                            onChange={(e) => handleItemChange(index, 'cost', e.target.value)} 
+                            required 
+                          />
+                        </td>
+                        <td>
+                          <Form.Control 
+                            size="sm" 
+                            type="number" 
+                            min="0" 
+                            value={item.price} 
+                            onChange={(e) => handleItemChange(index, 'price', e.target.value)} 
+                            required 
+                          />
+                        </td>
+                        <td>
+                          <Badge bg={lineMarginPct >= 0 ? "success" : "danger"}>
+                            {lineMarginPct.toFixed(1)}%
+                          </Badge>
+                        </td>
+                        <td>
+                          {items.length > 1 && (
+                            <Button variant="link" className="text-danger p-0" onClick={() => handleRemoveItem(index)}>
+                              <Trash2 size={16} />
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                <tfoot className="table-light fw-bold">
+                  <tr>
+                    <td colSpan="2" className="text-end">Totals:</td>
+                    <td className="text-danger">{formatCurrency(formTotals.cost)}</td>
+                    <td className="text-success">{formatCurrency(formTotals.price)}</td>
+                    <td>
+                      <Badge bg={formTotals.marginPct >= 0 ? "success" : "danger"} className="fs-6">
+                        {formTotals.marginPct.toFixed(1)}% Avg
+                      </Badge>
+                    </td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </Table>
+            </div>
+
+            <Row>
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label className="fw-bold">Adjusted Win Probability (%)</Form.Label>
+                  <Form.Control 
+                    type="number" 
+                    min="0" 
+                    max="100" 
+                    value={winProbability} 
+                    onChange={(e) => setWinProbability(e.target.value)} 
+                  />
+                  <Form.Text className="text-muted">
+                    Based on your pricing above, how likely are we to win?
+                  </Form.Text>
+                </Form.Group>
+              </Col>
+            </Row>
+
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowModal(false)}>
-              Close
-            </Button>
-            <Button variant="primary">
-              <Edit size={16} className="me-2" />
-              Edit Scenario
-            </Button>
+            <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
+            <Button variant="primary" type="submit">Save Pricing Model</Button>
           </Modal.Footer>
-        </Modal>
+        </Form>
+      </Modal>
+
+      {/* VIEW MODAL (Simplified) */}
+      <Modal show={showViewModal} onHide={() => setShowViewModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <Calculator size={20} className="me-2" />
+            Pricing Details
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedScenario && (
+            <div className="scenario-details">
+              <Row>
+                <Col md={6}>
+                  <h6>Basic Information</h6>
+                  <p><strong>Tender:</strong> {selectedScenario.tenderId?.title}</p>
+                  <p><strong>Client:</strong> {selectedScenario.tenderId?.organization}</p>
+                  <p><strong>Created:</strong> {new Date(selectedScenario.createdAt).toLocaleDateString()}</p>
+                </Col>
+                <Col md={6}>
+                  <h6>Rollup Totals</h6>
+                  <p><strong>Total Cost:</strong> <span className="text-danger">{formatCurrency(selectedScenario.totals?.cost)}</span></p>
+                  <p><strong>Total Price:</strong> <span className="text-success">{formatCurrency(selectedScenario.totals?.price)}</span></p>
+                  <p><strong>Calculated Margin:</strong> <Badge bg="primary">{(selectedScenario.totals?.marginPercentage || 0).toFixed(1)}%</Badge></p>
+                  <p><strong>Win Probability:</strong> <Badge bg={getWinProbabilityColor(selectedScenario.winProbability)}>{selectedScenario.winProbability}%</Badge></p>
+                </Col>
+              </Row>
+              <hr />
+              <h6>Cost Breakdown</h6>
+              <Table size="sm" bordered>
+                <thead className="table-light">
+                  <tr>
+                    <th>Item</th>
+                    <th>Qty</th>
+                    <th>Unit Cost</th>
+                    <th>Unit Price</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedScenario.items?.map((item, idx) => (
+                    <tr key={idx}>
+                      <td>{item.name}</td>
+                      <td>{item.quantity}</td>
+                      <td>{formatCurrency(item.cost)}</td>
+                      <td>{formatCurrency(item.price)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowViewModal(false)}>Close</Button>
+        </Modal.Footer>
+      </Modal>
     </>
   )
 }

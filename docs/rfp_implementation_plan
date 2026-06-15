@@ -1,0 +1,310 @@
+# AI-Powered RFP Response Copilot — Enterprise Architecture
+
+## Problem Statement
+
+The current RFP Management module is a **shell**. The `CreateRFP.jsx` page has a beautiful form, but:
+- **Save Draft** only triggers a toast — nothing persists to the database.
+- **Generate with AI** shows a placeholder toast — zero LLM integration.
+- **Validate & Publish** navigates to a placeholder page.
+- There is **no backend route, controller, or model** for RFP Response projects.
+- The existing `IssuedRfp` model is for the **buyer side** (issuing RFPs to vendors). We need the **supplier side** — responding to external tenders with AI-generated proposal content.
+
+We are building the **supplier's AI proposal writer**: the system that takes an approved tender, breaks down the RFP requirements, and uses LLMs to generate compliant, high-quality proposal sections — with enterprise-grade safeguards against hallucination.
+
+---
+
+## Existing Infrastructure We Will Leverage
+
+| Asset | Location | Status |
+|---|---|---|
+| Gemini API integration | [documentAI.js](file:///e:/tm-app-code/tm-app-code/backend/src/ai/services/documentAI.js) | ✅ Working (used for document analysis) |
+| AI config (model, temp, rate limits) | [aiConfig.js](file:///e:/tm-app-code/tm-app-code/backend/src/ai/config/aiConfig.js) | ✅ Working |
+| Gemini API key | `.env` → `GEMINI_API_KEY` | ✅ Set (gemini-2.5-flash) |
+| OpenAI API key | `.env` → `OPENAI_API_KEY` | ✅ Set (gpt-4o fallback) |
+| Tender model (source data) | [Tender.js](file:///e:/tm-app-code/tm-app-code/backend/src/models/Tender.js) | ✅ Working |
+| Evaluation model (approval gate) | [Evaluation.js](file:///e:/tm-app-code/tm-app-code/backend/src/models/Evaluation.js) | ✅ Working |
+| Pricing model (cost data) | [Pricing.js](file:///e:/tm-app-code/tm-app-code/backend/src/models/Pricing.js) | ✅ Working |
+| RBAC middleware | [auth.js](file:///e:/tm-app-code/tm-app-code/backend/src/middlewares/auth.js) | ✅ Working |
+| Frontend role utility | [roles.js](file:///e:/tm-app-code/tm-app-code/frontend/src/utils/roles.js) | ✅ Working |
+
+---
+
+## Architecture Overview
+
+```mermaid
+flowchart TD
+    subgraph "Data Sources"
+        T["Tender (Approved + BID)"]
+        P["Pricing Scenario"]
+        CL["Content Library"]
+    end
+
+    subgraph "Backend AI Pipeline"
+        direction TB
+        E["Phase 1: EXTRACT\n─────────────\nParse tender requirements\ninto structured JSON"]
+        G["Phase 2: GENERATE\n─────────────\nLLM generates each\nproposal section"]
+        V["Phase 3: VALIDATE\n─────────────\nSchema check + fact check\n+ compliance audit"]
+    end
+
+    subgraph "Anti-Hallucination Stack"
+        S1["Schema Forcing\n(Zod + JSON mode)"]
+        S2["Grounding Context\n(RAG from Content Library)"]
+        S3["Fact Verification\n(Cross-reference tender data)"]
+        S4["Confidence Scoring\n(Per-section 0-100)"]
+        S5["Human-in-the-Loop\n(Review before finalize)"]
+    end
+
+    T --> E
+    P --> G
+    CL --> G
+    E --> G --> V
+    S1 -.-> V
+    S2 -.-> G
+    S3 -.-> V
+    S4 -.-> V
+    S5 -.-> V
+
+    V --> DB["MongoDB\nRfpResponse collection"]
+    DB --> FE["Frontend\nProposal Editor"]
+```
+
+---
+
+## Anti-Hallucination Defense Layers
+
+> [!IMPORTANT]
+> This is not a toy "call GPT and pray" system. Every LLM output passes through **5 independent defense layers** before it reaches the user.
+
+### Layer 1: Schema Forcing (Structural Guarantee)
+- Every LLM call uses **JSON mode** (`response_mime_type: "application/json"` for Gemini, `response_format: { type: "json_object" }` for OpenAI).
+- Every response is validated against a **Zod schema** before being accepted. If validation fails, the system **retries with the validation error injected into the prompt** (up to 3 attempts).
+- This eliminates malformed outputs, missing fields, and type mismatches.
+
+### Layer 2: Grounded Generation (RAG Context Injection)
+- Before generating any proposal section, the system queries the **Content Library** for relevant company boilerplate (past proposals, capability statements, certifications).
+- This grounding context is injected into the prompt as `COMPANY_CONTEXT`, forcing the LLM to base its output on **real company data** instead of fabricating capabilities.
+- If no content library entries exist, the system flags the section as `UNGROUNDED` and warns the user.
+
+### Layer 3: Fact Verification (Cross-Reference Check)
+- After generation, the system runs a **verification pass** where it compares the generated text against the original tender requirements.
+- It checks: Are all mandatory requirements addressed? Are any claims made that contradict the tender specifications? Are any numerical values (budgets, timelines) fabricated?
+- Each section receives a `factCheckScore` (0-100).
+
+### Layer 4: Confidence Scoring (Quantified Trust)
+- Every generated section carries a composite `confidenceScore` calculated from:
+  - Schema validation pass/fail (binary)
+  - Grounding depth (how many content library items were used)
+  - Fact check score (0-100)
+  - LLM self-reported confidence (extracted from response metadata)
+- Sections below 60% confidence are flagged as `NEEDS_REVIEW` in the UI.
+
+### Layer 5: Human-in-the-Loop (Final Authority)
+- **No AI-generated content is ever auto-published.** Every section enters the UI in `DRAFT` state.
+- Users can view, edit, regenerate, or approve each section independently.
+- The final proposal cannot be submitted until every required section is either `APPROVED` or `MANUALLY_WRITTEN`.
+
+---
+
+## Proposed Changes
+
+### Backend — New Data Model
+
+#### [NEW] `backend/src/models/RfpResponse.js`
+
+The core Mongoose schema for a supplier's RFP response project:
+
+```javascript
+{
+  tenderId: ObjectId,           // Links to the approved Tender
+  companyId: ObjectId,          // Multi-tenant isolation
+  evaluationId: ObjectId,       // Links to the BID approval
+  pricingId: ObjectId,          // Links to the pricing scenario
+
+  metadata: {
+    projectName: String,
+    rfpNumber: String,
+    submissionDeadline: Date,
+    status: 'DRAFT' | 'IN_PROGRESS' | 'REVIEW' | 'APPROVED' | 'SUBMITTED',
+    createdBy: ObjectId,
+    approvedBy: ObjectId,
+    approvedAt: Date
+  },
+
+  // Phase 1 output: Extracted requirements
+  extractedRequirements: [{
+    id: String,
+    requirement: String,
+    category: 'TECHNICAL' | 'COMMERCIAL' | 'COMPLIANCE' | 'TIMELINE',
+    mandatory: Boolean,
+    addressed: Boolean,        // Tracks if a section covers this
+    addressedBySectionId: String
+  }],
+
+  // Phase 2 output: Generated proposal sections
+  sections: [{
+    id: String,
+    title: String,
+    type: 'EXECUTIVE_SUMMARY' | 'TECHNICAL_APPROACH' | 'METHODOLOGY' | 
+          'TEAM_QUALIFICATIONS' | 'PAST_PERFORMANCE' | 'COMPLIANCE_MATRIX' | 
+          'PRICING_SUMMARY' | 'RISK_MITIGATION' | 'CUSTOM',
+    content: String,           // The actual proposal text (Markdown)
+    status: 'PENDING' | 'GENERATING' | 'DRAFT' | 'NEEDS_REVIEW' | 
+            'APPROVED' | 'MANUALLY_WRITTEN',
+    
+    // AI metadata
+    aiMetadata: {
+      model: String,           // e.g. "gemini-2.5-flash"
+      promptVersion: String,   // Tracks which prompt template was used
+      groundingSources: [String], // Content library IDs used as context
+      schemaValid: Boolean,
+      factCheckScore: Number,  // 0-100
+      confidenceScore: Number, // 0-100 composite
+      generatedAt: Date,
+      retryCount: Number,
+      rawTokensUsed: Number
+    },
+
+    // Human review
+    reviewedBy: ObjectId,
+    reviewedAt: Date,
+    reviewComments: String,
+    wordCount: Number,
+    order: Number              // Display order in the final document
+  }],
+
+  // Phase 3 output: Compliance audit trail
+  complianceAudit: {
+    totalRequirements: Number,
+    addressedCount: Number,
+    coveragePercentage: Number,
+    unaddressedRequirements: [String],
+    auditedAt: Date
+  }
+}
+```
+
+---
+
+### Backend — AI Service Layer
+
+#### [NEW] `backend/src/ai/services/rfpCopilotService.js`
+
+The orchestration engine. Contains 3 core methods:
+
+| Method | Purpose | Anti-Hallucination Layers Used |
+|---|---|---|
+| `extractRequirements(tenderId)` | Calls LLM to parse tender text into structured requirement objects | Schema Forcing, Confidence Scoring |
+| `generateSection(sectionType, context)` | Generates one proposal section with grounded context | Schema Forcing, RAG Grounding, Confidence Scoring |
+| `validateSection(section, requirements)` | Runs fact-check verification pass against tender requirements | Fact Verification, Compliance Audit |
+
+#### [NEW] `backend/src/ai/schemas/rfpSchemas.js`
+
+Zod validation schemas for every LLM output shape. If the LLM returns invalid JSON, the schema error message is fed back into a retry prompt.
+
+#### [NEW] `backend/src/ai/prompts/rfpPrompts.js`
+
+Versioned prompt templates with:
+- System prompts establishing domain expertise and output constraints
+- Few-shot examples for each section type
+- Explicit "DO NOT fabricate" guardrails
+- `COMPANY_CONTEXT` and `TENDER_CONTEXT` injection slots
+
+---
+
+### Backend — Routes & Controller
+
+#### [NEW] `backend/src/routes/rfpResponse.js`
+
+| Method | Path | Role Guard | Description |
+|---|---|---|---|
+| `GET` | `/` | All authenticated | List all RFP response projects |
+| `POST` | `/` | TENDER_MANAGER, ADMIN | Create new response project (linked to approved tender) |
+| `GET` | `/:id` | All authenticated | Get response project with all sections |
+| `PUT` | `/:id` | TENDER_MANAGER, ADMIN | Update metadata |
+| `DELETE` | `/:id` | ADMIN | Soft-delete response project |
+| `POST` | `/:id/extract` | TENDER_MANAGER, ADMIN | Trigger Phase 1: Extract requirements via AI |
+| `POST` | `/:id/generate/:sectionType` | TENDER_MANAGER, ADMIN | Trigger Phase 2: Generate one section via AI |
+| `POST` | `/:id/generate-all` | TENDER_MANAGER, ADMIN | Trigger Phase 2: Generate all sections |
+| `PUT` | `/:id/sections/:sectionId` | TENDER_MANAGER, REVIEWER, ADMIN | Edit section content manually |
+| `POST` | `/:id/sections/:sectionId/approve` | REVIEWER, APPROVER, ADMIN | Approve a section |
+| `POST` | `/:id/validate` | All authenticated | Trigger Phase 3: Run compliance audit |
+| `POST` | `/:id/submit` | APPROVER, ADMIN | Final submission (all sections must be approved) |
+
+#### [NEW] `backend/src/controllers/rfpResponseController.js`
+
+Implements all route handlers, delegating AI work to `rfpCopilotService.js`.
+
+---
+
+### Frontend — Redux & API
+
+#### [NEW] `frontend/src/services/rfpResponseAPI.js`
+
+API client mapping to all backend routes.
+
+#### [NEW] `frontend/src/store/slices/rfpResponseSlice.js`
+
+Redux slice with thunks for all CRUD + AI operations. Payload unwrapping will follow the `action.payload.data || action.payload` pattern we've established.
+
+---
+
+### Frontend — UI Pages
+
+#### [MODIFY] `frontend/src/pages/rfp-management/CreateRFP.jsx`
+
+Major overhaul:
+- Wire Save Draft to the new `POST /api/rfp-responses` backend
+- Wire Generate with AI to trigger `POST /api/rfp-responses/:id/extract` → then `generate-all`
+- Show real-time generation progress with section-by-section status indicators
+- Replace the placeholder publish flow with a real approval workflow
+
+#### [NEW] `frontend/src/pages/rfp-management/RFPResponseEditor.jsx`
+
+The main proposal editing workspace:
+- Split-pane layout: Requirements checklist (left) + Section editor (right)
+- Per-section confidence badges (green/yellow/red)
+- Inline "Regenerate" button per section
+- Manual edit mode with rich text
+- Section approval workflow buttons (role-gated)
+- Compliance coverage progress bar
+
+#### [MODIFY] `frontend/src/pages/rfp-management/AIRFPCopilot.jsx`
+
+Replace the placeholder with the actual AI control panel:
+- One-click "Extract All Requirements" button
+- Section-by-section generation controls
+- AI confidence dashboard
+- Prompt tuning controls (tone, length, focus areas)
+
+---
+
+## Verification Plan
+
+### Automated Tests
+- Zod schema validation unit tests for every LLM output shape
+- Backend controller integration tests via REST client
+- Redux slice reducer tests for payload unwrapping
+
+### Manual Verification
+1. Create a new RFP Response project linked to an approved tender
+2. Trigger requirement extraction → verify structured JSON output
+3. Generate each section type → verify confidence scores and grounding
+4. Edit a section manually → verify save
+5. Approve all sections → verify compliance audit passes
+6. Test RBAC: Verify TENDER_MANAGER cannot approve, REVIEWER cannot submit
+7. Test with a tender that has no content library entries → verify `UNGROUNDED` warning appears
+
+---
+
+## Open Questions
+
+> [!IMPORTANT]
+> **LLM Provider Priority**: The `.env` has both Gemini and OpenAI keys. Should we default to Gemini 2.5 Flash for speed, or GPT-4o for quality? I recommend **Gemini 2.5 Flash as primary** (it's faster and cheaper) with **GPT-4o as fallback** when Gemini fails or returns low-confidence results. Please confirm.
+
+> [!IMPORTANT]
+> **Content Library**: The current [ContentLibrary.jsx](file:///e:/tm-app-code/tm-app-code/frontend/src/pages/document-management/ContentLibrary.jsx) uses **hardcoded dummy data** (no backend). For RAG grounding to work, we need real documents in the database. Should I:
+> - **(A)** Build the Content Library backend first (full CRUD + file upload), then wire it into the RFP Copilot as a grounding source?
+> - **(B)** Skip Content Library for now and use the tender's own description + pricing data as the only grounding context? (Faster to ship, but less accurate grounding.)
+
+> [!WARNING]
+> **Zod Dependency**: The backend currently does not use Zod. I will need to install it via `npm install zod`. This is a zero-dependency, TypeScript-first schema validation library that works perfectly in plain JS. It has no security implications. Please confirm this is acceptable.

@@ -9,6 +9,8 @@ import calendarReducer from './slices/calendarSlice'
 import supportReducer from './slices/supportSlice'
 import adminConfigReducer from './slices/adminConfigSlice'
 import dashboardReducer from './slices/dashboardSlice'
+import pricingReducer from './slices/pricingSlice'
+import rfpResponseReducer from './slices/rfpResponseSlice'
 
 export const store = configureStore({
   reducer: {
@@ -21,7 +23,9 @@ export const store = configureStore({
     calendar: calendarReducer,
     support: supportReducer,
     adminConfig: adminConfigReducer,
-    dashboard: dashboardReducer
+    dashboard: dashboardReducer,
+    pricing: pricingReducer,
+    rfpResponse: rfpResponseReducer
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

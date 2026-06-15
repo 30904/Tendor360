@@ -124,3 +124,4 @@ process.on('unhandledRejection', (err) => {
 });
 
 startServer();
+// Trigger restart

@@ -22,6 +22,10 @@ export const deleteEvaluation = (id) => {
 };
 
 // Evaluation workflow operations
+export const predictAIScore = (tenderId) => {
+  return api.post(`/evaluations/ai-predict`, { tenderId });
+};
+
 export const submitForReview = (id, reviewData) => {
   return api.post(`/evaluations/${id}/submit`, reviewData);
 };
@@ -70,7 +74,8 @@ const evaluationAPI = {
   getQuickDecisions,
   getEvaluationTemplates,
   createEvaluationTemplate,
-  cloneEvaluationTemplate
+  cloneEvaluationTemplate,
+  predictAIScore
 };
 
 export default evaluationAPI;

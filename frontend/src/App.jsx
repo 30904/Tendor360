@@ -163,6 +163,7 @@ import TeamCollaboration from './pages/rfp-management/TeamCollaboration'
 import PublishRFP from './pages/rfp-management/PublishRFP'
 import TrackRFP from './pages/rfp-management/TrackRFP'
 import AIRFPCopilot from './pages/rfp-management/AIRFPCopilot'
+import RFPResponseEditor from './pages/rfp-management/RFPResponseEditor'
 import TenderDiscoveryHub from './pages/tender-discovery/TenderDiscoveryHub'
 import DiscoveryHistoryPage from './pages/tender-discovery/DiscoveryHistoryPage'
 import DiscoveryImportQueuePage from './pages/tender-discovery/DiscoveryImportQueuePage'
@@ -357,6 +358,7 @@ function App() {
           <Route path="rfp-management/publish" element={<PublishRFP />} />
           <Route path="rfp-management/tracking" element={<TrackRFP />} />
           <Route path="rfp-management/ai-copilot" element={<AIRFPCopilot />} />
+          <Route path="rfp-management/editor/:id" element={<RFPResponseEditor />} />
 
           <Route path="issued-rfps" element={<IssuedRfpListPage />} />
           <Route path="issued-rfps/new" element={<IssuedRfpNewPage />} />

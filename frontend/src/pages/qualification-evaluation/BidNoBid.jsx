@@ -1,142 +1,60 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Row, Col, Button, Form, Badge, Modal, ProgressBar } from 'react-bootstrap'
+import { useDispatch, useSelector } from 'react-redux'
 import FormDrawerModal from '../../components/FormDrawerModal'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
 import { Plus, Edit, Trash2, Eye, CheckCircle, AlertTriangle, TrendingUp, TrendingDown, Target } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
+import { fetchEvaluations, createEvaluation, updateEvaluation, deleteEvaluation, fetchEvaluationStats, selectEvaluations, selectEvaluationStats, selectEvaluationLoading, predictAIScore, submitForReview, reviewEvaluation } from '../../store/slices/evaluationSlice'
+import { fetchTenders } from '../../store/slices/tenderSlice'
 import './BidNoBid.scss'
 import { dummyBidNoBidPrefill } from '../../utils/testFormDummies'
+import { userHasAnyRole } from '../../utils/roles'
 
 const BidNoBid = () => {
   const navigate = useNavigate()
-  const [decisions, setDecisions] = useState([])
-  const [loading, setLoading] = useState(false)
+  const dispatch = useDispatch()
+  const evaluations = useSelector(selectEvaluations)
+  const statsFromRedux = useSelector(selectEvaluationStats)
+  const loading = useSelector(selectEvaluationLoading)
+  const { tenders } = useSelector(state => state.tender)
+  const { user } = useSelector(state => state.auth)
+
   const [searchTerm, setSearchTerm] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editingDecision, setEditingDecision] = useState(null)
   const [prefillSnapshot, setPrefillSnapshot] = useState(null)
   const [modalFormKey, setModalFormKey] = useState(0)
-  const [stats, setStats] = useState({})
 
-  // Mock data for demonstration
   useEffect(() => {
-    setDecisions([
-      {
-        id: 1,
-        tenderTitle: 'Infrastructure Development Project',
-        client: 'City Municipal Corporation',
-        value: 2500000,
-        decision: 'Bid',
-        confidence: 85,
-        riskLevel: 'Medium',
-        rationale: 'Strong technical capabilities and competitive pricing',
-        createdBy: 'John Doe',
-        createdDate: '2024-01-20',
-        status: 'Approved'
-      },
-      {
-        id: 2,
-        tenderTitle: 'Software Development Services',
-        client: 'Tech Solutions Inc.',
-        value: 1200000,
-        decision: 'No-Bid',
-        confidence: 75,
-        riskLevel: 'High',
-        rationale: 'Limited expertise in required technology stack',
-        createdBy: 'Jane Smith',
-        createdDate: '2024-01-19',
-        status: 'Pending'
-      },
-      {
-        id: 3,
-        tenderTitle: 'Consulting Services',
-        client: 'Global Corp',
-        value: 800000,
-        decision: 'Bid',
-        confidence: 92,
-        riskLevel: 'Low',
-        rationale: 'Excellent track record with similar projects',
-        createdBy: 'Mike Johnson',
-        createdDate: '2024-01-18',
-        status: 'Approved'
-      },
-      {
-        id: 4,
-        tenderTitle: 'Healthcare Facility Construction',
-        client: 'Health Department',
-        value: 4500000,
-        decision: 'Bid',
-        confidence: 78,
-        riskLevel: 'Medium',
-        rationale: 'Strong construction capabilities and healthcare experience',
-        createdBy: 'Sarah Wilson',
-        createdDate: '2024-01-21',
-        status: 'Pending'
-      },
-      {
-        id: 5,
-        tenderTitle: 'IT Infrastructure Upgrade',
-        client: 'Banking Authority',
-        value: 3200000,
-        decision: 'No-Bid',
-        confidence: 65,
-        riskLevel: 'High',
-        rationale: 'Insufficient cybersecurity expertise for banking sector',
-        createdBy: 'David Brown',
-        createdDate: '2024-01-22',
-        status: 'Approved'
-      },
-      {
-        id: 6,
-        tenderTitle: 'Educational Technology Platform',
-        client: 'Education Board',
-        value: 1800000,
-        decision: 'Bid',
-        confidence: 88,
-        riskLevel: 'Low',
-        rationale: 'Proven experience in educational technology solutions',
-        createdBy: 'Emily Davis',
-        createdDate: '2024-01-23',
-        status: 'Approved'
-      },
-      {
-        id: 7,
-        tenderTitle: 'Manufacturing Equipment Supply',
-        client: 'Manufacturing Corp',
-        value: 5600000,
-        decision: 'Bid',
-        confidence: 82,
-        riskLevel: 'Medium',
-        rationale: 'Strong supplier network and technical expertise',
-        createdBy: 'Robert Taylor',
-        createdDate: '2024-01-24',
-        status: 'Pending'
-      },
-      {
-        id: 8,
-        tenderTitle: 'Environmental Impact Assessment',
-        client: 'Environmental Agency',
-        value: 950000,
-        decision: 'No-Bid',
-        confidence: 70,
-        riskLevel: 'High',
-        rationale: 'Limited environmental assessment capabilities',
-        createdBy: 'Lisa Anderson',
-        createdDate: '2024-01-25',
-        status: 'Approved'
-      }
-    ])
+    dispatch(fetchEvaluations({}))
+    dispatch(fetchEvaluationStats())
+    dispatch(fetchTenders({ filters: {}, pagination: { itemsPerPage: 100 }, sorting: {} }))
+  }, [dispatch])
 
-    setStats({
-      totalDecisions: 8,
-      bidDecisions: 5,
-      noBidDecisions: 3,
-      avgConfidence: 79,
-      pendingDecisions: 2
-    })
-  }, [])
+  // Computed stats from redux or local calculations
+  const stats = useMemo(() => {
+    if (statsFromRedux?.overview) {
+      return {
+        totalDecisions: statsFromRedux.overview.totalEvaluations,
+        bidDecisions: statsFromRedux.overview.bidCount,
+        noBidDecisions: statsFromRedux.overview.noBidCount,
+        avgConfidence: Math.round(statsFromRedux.overview.averageScore || 0),
+        pendingDecisions: statsFromRedux.overview.pendingCount
+      }
+    }
+    return {
+      totalDecisions: 0, bidDecisions: 0, noBidDecisions: 0, avgConfidence: 0, pendingDecisions: 0
+    }
+  }, [statsFromRedux])
+
+  const availableTenders = useMemo(() => {
+    if (!tenders) return [];
+    const evaluatedTenderIds = new Set(evaluations?.map(e => e.tenderId?._id || e.tenderId) || []);
+    return tenders.filter(t => !evaluatedTenderIds.has(t._id));
+  }, [tenders, evaluations]);
 
   const handleEditDecision = (decision) => {
     setPrefillSnapshot(null)
@@ -146,8 +64,82 @@ const BidNoBid = () => {
   }
 
   const handleDeleteDecision = (decision) => {
-    if (window.confirm(`Are you sure you want to delete decision for "${decision.tenderTitle}"?`)) {
-      setDecisions(prev => prev.filter(d => d.id !== decision.id))
+    if (window.confirm(`Are you sure you want to delete decision for "${decision.tenderId?.title || 'this tender'}"?`)) {
+      dispatch(deleteEvaluation(decision._id)).then(() => {
+        dispatch(fetchEvaluationStats());
+      });
+    }
+  }
+
+  const handleAIPredict = async () => {
+    const tenderSelect = document.querySelector('select[name="tenderId"]');
+    if (!tenderSelect || !tenderSelect.value) {
+      alert("Please select a Tender first so the AI knows what to analyze.");
+      return;
+    }
+    
+    try {
+      // Set a loading toast or state if we want, but for now just await
+      const response = await dispatch(predictAIScore(tenderSelect.value)).unwrap();
+      if (response && response.prediction) {
+        setPrefillSnapshot((prev) => ({
+          ...prev,
+          tenderId: tenderSelect.value, // preserve current selection
+          decision: 'BID', 
+          confidenceLevel: response.prediction.confidenceLevel,
+          riskLevel: response.prediction.riskLevel,
+          decisionReason: response.prediction.decisionReason
+        }));
+        setModalFormKey((k) => k + 1);
+      }
+    } catch (e) {
+      console.error(e);
+      alert("AI prediction failed.");
+    }
+  }
+
+  const handleWorkflowAction = (decision, actionType) => {
+    if (actionType === 'SUBMIT') {
+      dispatch(submitForReview({ id: decision._id, reviewers: [] })).then(() => {
+        dispatch(fetchEvaluations({}));
+        dispatch(fetchEvaluationStats());
+      });
+    } else if (actionType === 'APPROVE' || actionType === 'REJECT') {
+      dispatch(reviewEvaluation({ id: decision._id, reviewData: { decision: actionType, comments: '' } })).then(() => {
+        dispatch(fetchEvaluations({}));
+        dispatch(fetchEvaluationStats());
+      });
+    }
+  }
+
+  const handleFormSubmit = (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const evaluationData = {
+      tenderId: formData.get('tenderId'),
+      decision: formData.get('decision'),
+      riskLevel: formData.get('riskLevel'),
+      confidenceLevel: Number(formData.get('confidenceLevel')),
+      decisionReason: formData.get('decisionReason'),
+      evaluationName: 'Bid/No-Bid Decision'
+    };
+
+    if (editingDecision) {
+      dispatch(updateEvaluation({ id: editingDecision._id, updateData: evaluationData }))
+        .unwrap()
+        .then(() => {
+          dispatch(fetchEvaluationStats());
+          closeBidModal();
+        })
+        .catch(err => alert("Failed to update: " + err));
+    } else {
+      dispatch(createEvaluation(evaluationData))
+        .unwrap()
+        .then(() => {
+          dispatch(fetchEvaluationStats());
+          closeBidModal();
+        })
+        .catch(err => alert("Failed to save: " + err));
     }
   }
 
@@ -166,9 +158,9 @@ const BidNoBid = () => {
         <div className="tender-info">
           <div className="fw-semibold d-flex align-items-center">
             <Target size={16} className="me-2" />
-            {value}
+            {row.tenderId?.title || 'Unknown Tender'}
           </div>
-          <small className="text-muted">Client: {row.client}</small>
+          <small className="text-muted">Client: {row.tenderId?.organization || 'Unknown'}</small>
         </div>
       )
     },
@@ -176,9 +168,9 @@ const BidNoBid = () => {
       key: 'value',
       label: 'Value',
       width: '12%',
-      render: (value) => (
+      render: (value, row) => (
         <div className="value-info">
-          <div className="fw-bold text-primary">${(value / 1000000).toFixed(1)}M</div>
+          <div className="fw-bold text-primary">${((row.tenderId?.estimatedValue || 0) / 1000000).toFixed(1)}M</div>
         </div>
       )
     },
@@ -189,15 +181,15 @@ const BidNoBid = () => {
       render: (value) => getDecisionBadge(value)
     },
     {
-      key: 'confidence',
+      key: 'confidenceLevel',
       label: 'Confidence',
       width: '12%',
       render: (value) => (
         <div className="confidence-info">
-          <div className="fw-bold text-primary">{value}%</div>
+          <div className="fw-bold text-primary">{value || 0}%</div>
           <ProgressBar
-            now={value}
-            variant={value >= 80 ? 'success' : value >= 60 ? 'warning' : 'danger'}
+            now={value || 0}
+            variant={(value || 0) >= 80 ? 'success' : (value || 0) >= 60 ? 'warning' : 'danger'}
             size="sm"
             style={{ height: '4px' }}
           />
@@ -217,15 +209,17 @@ const BidNoBid = () => {
       render: (value) => getStatusBadge(value)
     },
     {
-      key: 'createdBy',
+      key: 'evaluator',
       label: 'Created By',
-      width: '12%'
+      width: '12%',
+      render: (value, row) => row.evaluator?.name || 'Unknown'
     },
     {
-      key: 'createdDate',
+      key: 'createdAt',
       label: 'Created Date',
       width: '12%',
       render: (value) => {
+        if (!value) return '';
         const date = new Date(value);
         return date.toLocaleDateString('en-US', {
           month: '2-digit',
@@ -233,31 +227,62 @@ const BidNoBid = () => {
           year: 'numeric'
         });
       }
+    },
+    {
+      key: 'actions_workflow',
+      label: 'Workflow',
+      width: '15%',
+      render: (value, row) => {
+        if (row.status === 'DRAFT') {
+          if (userHasAnyRole(user, ['TENDER MANAGER', 'ADMIN', 'SYSTEM ADMINISTRATOR'])) {
+            return (
+              <Button size="sm" variant="outline-primary" onClick={() => handleWorkflowAction(row, 'SUBMIT')}>
+                Submit for Review
+              </Button>
+            )
+          }
+          return <span className="text-muted text-sm">Draft</span>;
+        } else if (row.status === 'UNDER_REVIEW') {
+          if (userHasAnyRole(user, ['REVIEWER', 'APPROVER', 'ADMIN', 'SYSTEM ADMINISTRATOR'])) {
+            return (
+              <div className="d-flex gap-2">
+                <Button size="sm" variant="success" onClick={() => handleWorkflowAction(row, 'APPROVE')}>Approve</Button>
+                <Button size="sm" variant="danger" onClick={() => handleWorkflowAction(row, 'REJECT')}>Reject</Button>
+              </div>
+            )
+          }
+          return <span className="text-warning text-sm fw-semibold">Pending Review</span>;
+        }
+        return <span className="text-muted text-sm">Completed</span>;
+      }
     }
   ]
 
   const getDecisionBadge = (decision) => {
     const variants = {
-      'Bid': 'success',
-      'No-Bid': 'danger'
+      'BID': 'success',
+      'NO_BID': 'danger'
     }
     return <Badge bg={variants[decision] || 'secondary'}>{decision}</Badge>
   }
 
   const getRiskBadge = (risk) => {
     const variants = {
-      'Low': 'success',
-      'Medium': 'warning',
-      'High': 'danger'
+      'LOW': 'success',
+      'MEDIUM': 'warning',
+      'HIGH': 'danger',
+      'CRITICAL': 'danger'
     }
     return <Badge bg={variants[risk] || 'secondary'}>{risk}</Badge>
   }
 
   const getStatusBadge = (status) => {
     const variants = {
-      'Approved': 'success',
-      'Pending': 'warning',
-      'Rejected': 'danger'
+      'APPROVED': 'success',
+      'PENDING': 'warning',
+      'REJECTED': 'danger',
+      'DRAFT': 'secondary',
+      'UNDER_REVIEW': 'info'
     }
     return <Badge bg={variants[status] || 'secondary'}>{status}</Badge>
   }
@@ -381,7 +406,7 @@ const BidNoBid = () => {
             </Col>
           </Row>
         )}
-        tableTitle={`Bid / no-bid decisions (${decisions.length})`}
+        tableTitle={`Bid / no-bid decisions (${evaluations?.length || 0})`}
         tableActions={(
           <Button
             variant="primary"
@@ -399,9 +424,9 @@ const BidNoBid = () => {
         )}
       >
         <DataTable
-          data={decisions}
+          data={evaluations || []}
           columns={columns}
-          title={`Bid/No-Bid Decisions (${decisions.length})`}
+          title={`Bid/No-Bid Decisions (${evaluations?.length || 0})`}
           searchable={true}
           sortable={true}
           exportable={true}
@@ -445,58 +470,49 @@ const BidNoBid = () => {
               {editingDecision ? 'Edit Bid/No-Bid Decision' : 'New Bid/No-Bid Decision'}
             </Modal.Title>
           </Modal.Header>
-          <Form key={modalFormKey}>
+          <Form key={modalFormKey} onSubmit={handleFormSubmit}>
             <Modal.Body>
               <Row>
-                <Col md={6}>
+                <Col md={12}>
                   <Form.Group className="mb-3">
-                    <Form.Label>Tender Title</Form.Label>
-                    <Form.Control
-                      type="text"
-                      defaultValue={formSeed.tenderTitle || ''}
-                      placeholder="Enter tender title"
+                    <Form.Label>Select Tender</Form.Label>
+                    <Form.Select 
+                      name="tenderId" 
+                      defaultValue={formSeed.tenderId?._id || formSeed.tenderId || ''}
                       required
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={6}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Client</Form.Label>
-                    <Form.Control
-                      type="text"
-                      defaultValue={formSeed.client || ''}
-                      placeholder="Enter client name"
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
-              <Row>
-                <Col md={4}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Tender Value</Form.Label>
-                    <Form.Control
-                      type="number"
-                      defaultValue={formSeed.value ?? ''}
-                      placeholder="0"
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={4}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Decision</Form.Label>
-                    <Form.Select defaultValue={formSeed.decision || 'Bid'}>
-                      <option value="Bid">Bid</option>
-                      <option value="No-Bid">No-Bid</option>
+                    >
+                      <option value="">-- Select a Tender --</option>
+                      {availableTenders?.map(t => (
+                        <option key={t._id} value={t._id}>{t.title} ({t.organization})</option>
+                      ))}
                     </Form.Select>
                   </Form.Group>
                 </Col>
-                <Col md={4}>
+                <Col md={12} className="mb-3 d-flex justify-content-end">
+                  <Button variant="outline-info" onClick={handleAIPredict}>
+                    ✨ Predict with AI
+                  </Button>
+                </Col>
+              </Row>
+              <Row>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Decision</Form.Label>
+                    <Form.Select name="decision" defaultValue={formSeed.decision || 'BID'}>
+                      <option value="BID">BID</option>
+                      <option value="NO_BID">NO BID</option>
+                      <option value="PENDING">PENDING</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
                   <Form.Group className="mb-3">
                     <Form.Label>Risk Level</Form.Label>
-                    <Form.Select defaultValue={formSeed.riskLevel || 'Medium'}>
-                      <option value="Low">Low</option>
-                      <option value="Medium">Medium</option>
-                      <option value="High">High</option>
+                    <Form.Select name="riskLevel" defaultValue={formSeed.riskLevel || 'MEDIUM'}>
+                      <option value="LOW">Low</option>
+                      <option value="MEDIUM">Medium</option>
+                      <option value="HIGH">High</option>
+                      <option value="CRITICAL">Critical</option>
                     </Form.Select>
                   </Form.Group>
                 </Col>
@@ -506,31 +522,23 @@ const BidNoBid = () => {
                   <Form.Group className="mb-3">
                     <Form.Label>Confidence Level (%)</Form.Label>
                     <Form.Control
+                      name="confidenceLevel"
                       type="number"
                       min="0"
                       max="100"
-                      defaultValue={formSeed.confidence ?? ''}
+                      defaultValue={formSeed.confidenceLevel ?? 50}
                       placeholder="0-100"
                     />
-                  </Form.Group>
-                </Col>
-                <Col md={6}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Status</Form.Label>
-                    <Form.Select defaultValue={formSeed.status || 'Pending'}>
-                      <option value="Pending">Pending</option>
-                      <option value="Approved">Approved</option>
-                      <option value="Rejected">Rejected</option>
-                    </Form.Select>
                   </Form.Group>
                 </Col>
               </Row>
               <Form.Group className="mb-3">
                 <Form.Label>Rationale</Form.Label>
                 <Form.Control
+                  name="decisionReason"
                   as="textarea"
                   rows={4}
-                  defaultValue={formSeed.rationale || ''}
+                  defaultValue={formSeed.decisionReason || formSeed.rationale || ''}
                   placeholder="Explain the reasoning behind this decision..."
                 />
               </Form.Group>

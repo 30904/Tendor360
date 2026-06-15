@@ -11,6 +11,13 @@ import './CollaborationHub.scss'
 
 const modules = [
   {
+    id: 'ai-copilot',
+    title: 'AI RFP Copilot',
+    description: 'AI-assisted proposal writing and compliance validation.',
+    path: '/rfp-management/ai-copilot',
+    color: 'info'
+  },
+  {
     id: 'create-rfp',
     title: 'Opportunity collaboration authoring',
     description: 'Optional internal collaboration for opportunity response packaging.',

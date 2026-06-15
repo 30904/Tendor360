@@ -95,9 +95,10 @@ const evaluationSchema = new mongoose.Schema({
   },
   decisionReason: String,
   confidenceLevel: {
-    type: String,
-    enum: ['LOW', 'MEDIUM', 'HIGH', 'VERY_HIGH'],
-    default: 'MEDIUM'
+    type: Number,
+    min: 0,
+    max: 100,
+    default: 50
   },
   riskLevel: {
     type: String,
