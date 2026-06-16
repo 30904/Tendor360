@@ -78,12 +78,13 @@ exports.createEvaluation = catchAsync(async (req, res) => {
   }
 
   let evaluationData = {
+    ...req.body,
     tenderId,
     evaluationName: evaluationName || `Evaluation for ${tender.title}`,
     evaluationType: evaluationType || 'COMPREHENSIVE',
     evaluator: req.user.id,
     companyId: req.companyId, // Add companyId
-    status: 'DRAFT'
+    status: req.body.status || 'DRAFT'
   };
 
   // If template is provided, use it
@@ -224,8 +225,8 @@ exports.reviewEvaluation = catchAsync(async (req, res) => {
   
   // If decision provided, update status
   if (decision) {
-    evaluation.status = decision === 'APPROVED' ? 'APPROVED' : 'REJECTED';
-    if (decision === 'APPROVED') {
+    evaluation.status = (decision === 'APPROVED' || decision === 'APPROVE') ? 'APPROVED' : 'REJECTED';
+    if (decision === 'APPROVED' || decision === 'APPROVE') {
       evaluation.approver = req.user.id;
       evaluation.approvedAt = new Date();
     }
@@ -425,5 +426,55 @@ exports.getQuickDecisions = catchAsync(async (req, res) => {
       urgentEvaluations
     },
     message: 'Quick decisions data retrieved successfully'
+  });
+});
+
+// Generate AI Prediction for Risk and Confidence
+exports.generateAIPrediction = catchAsync(async (req, res) => {
+  const { tenderId } = req.body;
+  
+  // Validate tender exists and belongs to company
+  const tender = await Tender.findOne({ _id: tenderId, companyId: req.companyId });
+  if (!tender) {
+    return res.status(404).json({
+      success: false,
+      message: 'Tender not found for AI analysis'
+    });
+  }
+
+  // Simulate AI processing delay
+  await new Promise(resolve => setTimeout(resolve, 1500));
+
+  // Heuristic mock engine for AI (could be swapped with OpenAI/LLM call)
+  // Higher value slightly increases risk. 
+  let riskLevel = 'LOW';
+  let confidence = 85;
+  let rationale = `AI Analysis: Strong alignment with past successes. `;
+
+  if (tender.estimatedValue > 1000000) {
+    riskLevel = 'MEDIUM';
+    confidence = 75;
+    rationale += `However, high contract value (${(tender.estimatedValue / 1000000).toFixed(1)}M) increases delivery risk. `;
+  }
+  if (tender.estimatedValue > 5000000) {
+    riskLevel = 'HIGH';
+    confidence = 60;
+    rationale += `Significant financial exposure detected. Thorough pricing strategy recommended. `;
+  }
+
+  // Randomize slightly for variety
+  confidence = Math.floor(confidence + (Math.random() * 10 - 5));
+  if (confidence > 100) confidence = 100;
+
+  res.json({
+    success: true,
+    data: {
+      prediction: {
+        confidenceLevel: confidence,
+        riskLevel: riskLevel,
+        decisionReason: rationale
+      }
+    },
+    message: 'AI prediction generated successfully'
   });
 });

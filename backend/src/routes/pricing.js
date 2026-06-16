@@ -1,35 +1,38 @@
 const express = require('express');
 const { requireAuth, requireRoles } = require('../middlewares/auth');
+const pricingController = require('../controllers/pricingController');
 const router = express.Router();
 
-// Get pricing for a tender
-router.get('/tender/:tenderId', requireAuth, async (req, res) => {
-  try {
-    res.json({
-      data: { pricing: null },
-      message: 'Pricing retrieved successfully'
-    });
-  } catch (error) {
-    res.status(500).json({
-      error: 'Failed to retrieve pricing',
-      message: error.message
-    });
-  }
-});
+router.use(requireAuth);
 
-// Create/Update pricing
-router.post('/', requireAuth, requireRoles('PRICING_ANALYST', 'ADMIN'), async (req, res) => {
-  try {
-    res.status(201).json({
-      data: { pricing: null },
-      message: 'Pricing created successfully'
-    });
-  } catch (error) {
-    res.status(500).json({
-      error: 'Failed to create pricing',
-      message: error.message
-    });
-  }
-});
+// Get pricing scenarios (with optional filters)
+router.get('/', pricingController.getPricing);
+
+// Get pricing for a tender
+router.get('/tender/:tenderId', pricingController.getTenderPricing);
+
+// Generate AI Pricing Strategy
+router.post('/ai-predict', 
+  requireRoles('PRICING_ANALYST', 'TENDER_MANAGER', 'ADMIN'),
+  pricingController.generateAIPricing
+);
+
+// Create pricing scenario
+router.post('/', 
+  requireRoles('PRICING_ANALYST', 'TENDER_MANAGER', 'ADMIN'), 
+  pricingController.createPricing
+);
+
+// Update pricing scenario
+router.put('/:id', 
+  requireRoles('PRICING_ANALYST', 'TENDER_MANAGER', 'ADMIN'), 
+  pricingController.updatePricing
+);
+
+// Delete pricing scenario
+router.delete('/:id', 
+  requireRoles('PRICING_ANALYST', 'TENDER_MANAGER', 'ADMIN'), 
+  pricingController.deletePricing
+);
 
 module.exports = router;

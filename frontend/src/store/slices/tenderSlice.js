@@ -5,8 +5,9 @@ import { toast } from 'react-toastify'
 // Async thunks
 export const fetchTenders = createAsyncThunk(
   'tenders/fetchTenders',
-  async ({ filters, pagination, sorting }, { rejectWithValue }) => {
+  async (params = {}, { rejectWithValue }) => {
     try {
+      const { filters = {}, pagination = {}, sorting = {} } = params
       const queryParams = { ...filters, ...pagination, ...sorting }
       const response = await tenderAPI.getTenders(queryParams)
       return response.data

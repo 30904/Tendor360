@@ -50,6 +50,7 @@ const setupRoutes = (app) => {
   app.use('/api/respond', respondRoutes);
   app.use('/api/intelligence', intelligencePlatformRoutes);
   app.use('/api/discovery-connectors', discoveryConnectorsRoutes);
+  app.use('/api/rfp-responses', require('../routes/rfpResponse'));
   
   console.log('✅ All API routes mounted successfully');
 

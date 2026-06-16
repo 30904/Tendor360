@@ -26,6 +26,18 @@ export const fetchEvaluation = createAsyncThunk(
   }
 );
 
+export const predictAIScore = createAsyncThunk(
+  'evaluation/predictAIScore',
+  async (tenderId, { rejectWithValue }) => {
+    try {
+      const response = await evaluationAPI.predictAIScore(tenderId);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'AI prediction failed');
+    }
+  }
+);
+
 export const createEvaluation = createAsyncThunk(
   'evaluation/createEvaluation',
   async (evaluationData, { rejectWithValue }) => {
@@ -225,12 +237,13 @@ const evaluationSlice = createSlice({
       })
       .addCase(fetchEvaluations.fulfilled, (state, action) => {
         state.loading = false;
-        state.evaluations = action.payload.docs || action.payload.evaluations || [];
+        const payloadData = action.payload.data || action.payload;
+        state.evaluations = payloadData.docs || payloadData.evaluations || [];
         state.pagination = {
-          currentPage: action.payload.page || 1,
-          totalPages: action.payload.totalPages || 1,
-          totalItems: action.payload.totalDocs || action.payload.total || 0,
-          pageSize: action.payload.limit || 20
+          currentPage: payloadData.page || 1,
+          totalPages: payloadData.totalPages || 1,
+          totalItems: payloadData.totalDocs || payloadData.total || 0,
+          pageSize: payloadData.limit || 20
         };
       })
       .addCase(fetchEvaluations.rejected, (state, action) => {
@@ -259,7 +272,10 @@ const evaluationSlice = createSlice({
       })
       .addCase(createEvaluation.fulfilled, (state, action) => {
         state.loading = false;
-        state.evaluations.unshift(action.payload.evaluation);
+        const payloadData = action.payload.data || action.payload;
+        if (payloadData.evaluation) {
+          state.evaluations.unshift(payloadData.evaluation);
+        }
         state.success = true;
       })
       .addCase(createEvaluation.rejected, (state, action) => {
@@ -274,12 +290,15 @@ const evaluationSlice = createSlice({
       })
       .addCase(updateEvaluation.fulfilled, (state, action) => {
         state.loading = false;
-        const index = state.evaluations.findIndex(e => e._id === action.payload.evaluation._id);
-        if (index !== -1) {
-          state.evaluations[index] = action.payload.evaluation;
-        }
-        if (state.currentEvaluation?._id === action.payload.evaluation._id) {
-          state.currentEvaluation = action.payload.evaluation;
+        const payloadData = action.payload.data || action.payload;
+        if (payloadData.evaluation) {
+          const index = state.evaluations.findIndex(e => e._id === payloadData.evaluation._id);
+          if (index !== -1) {
+            state.evaluations[index] = payloadData.evaluation;
+          }
+          if (state.currentEvaluation?._id === payloadData.evaluation._id) {
+            state.currentEvaluation = payloadData.evaluation;
+          }
         }
         state.success = true;
       })
@@ -313,12 +332,15 @@ const evaluationSlice = createSlice({
       })
       .addCase(submitForReview.fulfilled, (state, action) => {
         state.loading = false;
-        const index = state.evaluations.findIndex(e => e._id === action.payload.evaluation._id);
-        if (index !== -1) {
-          state.evaluations[index] = action.payload.evaluation;
-        }
-        if (state.currentEvaluation?._id === action.payload.evaluation._id) {
-          state.currentEvaluation = action.payload.evaluation;
+        const payloadData = action.payload.data || action.payload;
+        if (payloadData.evaluation) {
+          const index = state.evaluations.findIndex(e => e._id === payloadData.evaluation._id);
+          if (index !== -1) {
+            state.evaluations[index] = payloadData.evaluation;
+          }
+          if (state.currentEvaluation?._id === payloadData.evaluation._id) {
+            state.currentEvaluation = payloadData.evaluation;
+          }
         }
         state.success = true;
       })
@@ -334,12 +356,15 @@ const evaluationSlice = createSlice({
       })
       .addCase(reviewEvaluation.fulfilled, (state, action) => {
         state.loading = false;
-        const index = state.evaluations.findIndex(e => e._id === action.payload.evaluation._id);
-        if (index !== -1) {
-          state.evaluations[index] = action.payload.evaluation;
-        }
-        if (state.currentEvaluation?._id === action.payload.evaluation._id) {
-          state.currentEvaluation = action.payload.evaluation;
+        const payloadData = action.payload.data || action.payload;
+        if (payloadData.evaluation) {
+          const index = state.evaluations.findIndex(e => e._id === payloadData.evaluation._id);
+          if (index !== -1) {
+            state.evaluations[index] = payloadData.evaluation;
+          }
+          if (state.currentEvaluation?._id === payloadData.evaluation._id) {
+            state.currentEvaluation = payloadData.evaluation;
+          }
         }
         state.success = true;
       })
@@ -355,12 +380,15 @@ const evaluationSlice = createSlice({
       })
       .addCase(makeDecision.fulfilled, (state, action) => {
         state.loading = false;
-        const index = state.evaluations.findIndex(e => e._id === action.payload.evaluation._id);
-        if (index !== -1) {
-          state.evaluations[index] = action.payload.evaluation;
-        }
-        if (state.currentEvaluation?._id === action.payload.evaluation._id) {
-          state.currentEvaluation = action.payload.evaluation;
+        const payloadData = action.payload.data || action.payload;
+        if (payloadData.evaluation) {
+          const index = state.evaluations.findIndex(e => e._id === payloadData.evaluation._id);
+          if (index !== -1) {
+            state.evaluations[index] = payloadData.evaluation;
+          }
+          if (state.currentEvaluation?._id === payloadData.evaluation._id) {
+            state.currentEvaluation = payloadData.evaluation;
+          }
         }
         state.success = true;
       })

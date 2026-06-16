@@ -128,8 +128,8 @@ userSchema.methods.hasRole = function(role) {
 userSchema.methods.hasAnyRole = function(roles) {
   const required = Array.isArray(roles?.[0]) ? roles[0] : roles;
   if (!required?.length) return false;
-  const normalizedRequired = required.map((r) => String(r).trim().toUpperCase());
-  const userRoles = (this.roles || []).map((r) => String(r).trim().toUpperCase());
+  const normalizedRequired = required.map((r) => String(r).trim().toUpperCase().replace(/_/g, ' '));
+  const userRoles = (this.roles || []).map((r) => String(r).trim().toUpperCase().replace(/_/g, ' '));
   return userRoles.some((role) => normalizedRequired.includes(role));
 };
 

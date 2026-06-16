@@ -30,6 +30,12 @@ router.post('/templates/:id/clone',
 // Get all evaluations with filters
 router.get('/', evaluationController.getEvaluations);
 
+// Generate AI prediction for Risk and Confidence
+router.post('/ai-predict', 
+  requireRoles('TENDER_MANAGER', 'REVIEWER', 'APPROVER', 'ADMIN'), 
+  evaluationController.generateAIPrediction
+);
+
 // Get evaluation by ID
 router.get('/:id', evaluationController.getEvaluation);
 
