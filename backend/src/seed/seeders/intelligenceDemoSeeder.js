@@ -502,9 +502,11 @@ async function seedIntelligenceDemo() {
       }))
     );
 
+    const docExtractionJob = automationJobs.find(job => job.jobType === 'document_extraction');
+
     await AutomationFailure.create({
       companyId: company._id,
-      jobId: automationJobs[2]._id,
+      jobId: docExtractionJob?._id,
       errorMessage: 'Email ingestion connector is not configured',
       retryable: true
     });

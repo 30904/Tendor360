@@ -16,14 +16,14 @@ const seedEvaluations = async () => {
 
     for (const company of companies) {
       console.log(`\n✅ Creating evaluations for ${company.name}...`);
-      
+
       // Get tenders and reviewers for this company
       const tenders = await Tender.find({ companyId: company._id }).limit(2);
-      const reviewer = await User.findOne({ 
-        companyId: company._id, 
-        roles: 'REVIEWER' 
+      const reviewer = await User.findOne({
+        companyId: company._id,
+        roles: 'REVIEWER'
       });
-      
+
       if (tenders.length === 0 || !reviewer) {
         console.log(`⚠️ No tenders or reviewer found for ${company.name}, skipping...`);
         continue;
@@ -121,7 +121,7 @@ const seedEvaluations = async () => {
             weightedScore: 78.5,
             decision: 'BID',
             decisionReason: 'Strong technical capabilities with good financial standing. Recommended for shortlisting.',
-            confidenceLevel: 'HIGH',
+            confidenceLevel: 85,
             riskLevel: 'LOW',
             priority: 'HIGH',
             status: 'APPROVED',
@@ -132,21 +132,21 @@ const seedEvaluations = async () => {
           }
         ];
 
-        for (const eval of evaluations) {
-          const existingEval = await Evaluation.findOne({ 
+        for (const evaluationItem of evaluations) {
+          const existingEval = await Evaluation.findOne({
             companyId: company._id,
-            tenderId: eval.tenderId, 
-            evaluator: eval.evaluator 
+            tenderId: evaluationItem.tenderId,
+            evaluator: evaluationItem.evaluator
           });
           if (!existingEval) {
-            await Evaluation.create(eval);
+            await Evaluation.create(evaluationItem);
             console.log(`✅ Created evaluation for tender ${tender.title}`);
           } else {
             console.log(`ℹ️ Evaluation already exists for tender ${tender.title}`);
           }
         }
       }
-      
+
       console.log(`✅ Evaluations seeded successfully for ${company.name}`);
       console.log('---');
     }

@@ -10,14 +10,29 @@ const mongoose = require('mongoose');
 console.log('📁 Loading environment variables from:', path.join(__dirname, '../.env'));
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
-// Set default JWT secrets for development if not provided
-if (!process.env.JWT_ACCESS_SECRET) {
-  process.env.JWT_ACCESS_SECRET = 'tender360_dev_access_secret_key_2024_velioniq_ai_suite';
-  console.log('⚠️  Using default JWT access secret for development');
-}
-if (!process.env.JWT_REFRESH_SECRET) {
-  process.env.JWT_REFRESH_SECRET = 'tender360_dev_refresh_secret_key_2024_velioniq_ai_suite';
-  console.log('⚠️  Using default JWT refresh secret for development');
+// Set default JWT secrets for development if not provided, fail-fast in production
+const isProduction = process.env.NODE_ENV === 'production';
+
+if (isProduction) {
+  const missingVars = [];
+  if (!process.env.JWT_ACCESS_SECRET) missingVars.push('JWT_ACCESS_SECRET');
+  if (!process.env.JWT_REFRESH_SECRET) missingVars.push('JWT_REFRESH_SECRET');
+  if (!process.env.MONGO_URI) missingVars.push('MONGO_URI');
+
+  if (missingVars.length > 0) {
+    console.error('❌ CRITICAL SECURITY ERROR: Missing required production environment variables:', missingVars.join(', '));
+    console.error('❌ Server startup aborted to prevent security vulnerabilities.');
+    process.exit(1);
+  }
+} else {
+  if (!process.env.JWT_ACCESS_SECRET) {
+    process.env.JWT_ACCESS_SECRET = 'tender360_dev_access_secret_key_2024_velioniq_ai_suite';
+    console.log('⚠️  Using default JWT access secret for development');
+  }
+  if (!process.env.JWT_REFRESH_SECRET) {
+    process.env.JWT_REFRESH_SECRET = 'tender360_dev_refresh_secret_key_2024_velioniq_ai_suite';
+    console.log('⚠️  Using default JWT refresh secret for development');
+  }
 }
 
 console.log('🔧 Environment variables loaded:', {
