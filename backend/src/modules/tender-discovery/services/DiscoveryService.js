@@ -11,6 +11,7 @@ const { buildOpportunityContentHash } = require('../utils/opportunityContentHash
 const { applyMetadataToTender } = require('./DiscoveryMetadataService');
 const attachmentHarvestService = require('./AttachmentHarvestService');
 const tenderIntelligenceService = require('../../tender-intelligence/services/TenderIntelligenceService');
+const { webhookDeliveryService } = require('../../integrations/services/WebhookDeliveryService');
 
 async function appendLog(companyId, jobId, level, message, metadata) {
   await TenderDiscoveryLog.create({
@@ -38,6 +39,22 @@ function triggerTenderIntelligence(companyId, tenderId) {
   });
 }
 
+function buildTenderWebhookPayload(tender, opportunity, changeStatus) {
+  return {
+    tenderId: String(tender._id),
+    reference: tender.reference,
+    title: tender.title,
+    organization: tender.organization,
+    location: tender.location,
+    estimatedValue: tender.estimatedValue,
+    deadline: tender.deadline,
+    source: tender.source,
+    connectorType: tender.discovery?.connectorType,
+    changeStatus,
+    externalId: opportunity?.externalId || null
+  };
+}
+
 async function importOpportunities({
   companyId,
   userId,
@@ -55,10 +72,20 @@ async function importOpportunities({
   let attachmentsDownloaded = 0;
   let attachmentsFailed = 0;
   let samFallbackCount = 0;
+  let demoSkipped = 0;
   const externalReferenceKeys = [];
   const processedOpportunities = [];
 
   for (const opportunity of opportunities) {
+    const isDemoOpportunity =
+      opportunity.metadata?.isDemo === true ||
+      String(opportunity.externalId || '').startsWith('DEMO-');
+
+    if (isDemoOpportunity && !connectorConfig?.demoMode) {
+      demoSkipped += 1;
+      continue;
+    }
+
     try {
       const contentHash = buildOpportunityContentHash(opportunity);
       opportunity.contentHash = contentHash;
@@ -123,6 +150,11 @@ async function importOpportunities({
         imported += 1;
         processedOpportunities.push({ tenderId: existing._id, opportunity, changeStatus: 'updated' });
         triggerTenderIntelligence(companyId, existing._id);
+        webhookDeliveryService.emitAsync(
+          companyId,
+          'tender.updated',
+          buildTenderWebhookPayload(existing, opportunity, 'updated')
+        );
         continue;
       }
 
@@ -180,6 +212,11 @@ async function importOpportunities({
       imported += 1;
       processedOpportunities.push({ tenderId: tender._id, opportunity, changeStatus: 'new' });
       triggerTenderIntelligence(companyId, tender._id);
+      webhookDeliveryService.emitAsync(
+        companyId,
+        'tender.discovered',
+        buildTenderWebhookPayload(tender, opportunity, 'new')
+      );
     } catch (error) {
       failed += 1;
       await appendLog(companyId, job._id, 'error', error.message, {
@@ -211,9 +248,19 @@ async function importOpportunities({
   job.stats.attachmentsFailed = attachmentsFailed;
   job.stats.samFallbackUsed = samFallbackCount;
   job.stats.failed = failed;
+  job.stats.demoSkipped = demoSkipped;
   job.status = batch.status === 'failed' ? 'failed' : 'completed';
   job.completedAt = new Date();
   await job.save();
+
+  if (demoSkipped > 0) {
+    await appendLog(
+      companyId,
+      job._id,
+      'warning',
+      `Skipped ${demoSkipped} demo opportunity(ies) — connector is not in explicit demo mode`
+    );
+  }
 
   if (recordsNew || recordsUpdated) {
     await appendLog(
@@ -233,6 +280,7 @@ async function importOpportunities({
     attachmentsDownloaded,
     attachmentsFailed,
     samFallbackCount,
+    demoSkipped,
     processedOpportunities
   };
 }
@@ -375,6 +423,17 @@ class DiscoveryService {
           }`
         );
       }
+
+      webhookDeliveryService.emitAsync(job.companyId, 'discovery.completed', {
+        jobId: String(job._id),
+        connectorType: job.connectorType,
+        sourceId: job.sourceId ? String(job.sourceId) : null,
+        recordsNew: importStats.recordsNew,
+        recordsUpdated: importStats.recordsUpdated,
+        duplicates: importStats.duplicates,
+        failed: importStats.failed,
+        attachmentsDownloaded: importStats.attachmentsDownloaded
+      });
 
       return job;
     } catch (error) {

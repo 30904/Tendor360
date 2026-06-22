@@ -3,6 +3,7 @@ const TenderSource = require('../models/TenderSource');
 const Watchlist = require('../models/Watchlist');
 const User = require('../models/User');
 const { resolveCompanyObjectId } = require('../utils/resolveCompanyObjectId');
+const { executeWatchlistRun } = require('../services/WatchlistMatchService');
 
 // ==================== TENDER SOURCES ====================
 
@@ -798,23 +799,26 @@ const runWatchlist = async (req, res) => {
       });
     }
 
-    // Simulate watchlist run (in real implementation, this would search for matching tenders)
-    const runSuccess = Math.random() > 0.1; // 90% success rate for demo
-    const matchesFound = runSuccess ? Math.floor(Math.random() * 10) : 0;
+    if (watchlist.status !== 'active') {
+      return res.status(400).json({
+        success: false,
+        error: 'Watchlist inactive',
+        message: 'Only active watchlists can be run'
+      });
+    }
 
-    // Update run status
-    await watchlist.updateRunStatus(runSuccess, matchesFound);
+    const runResult = await executeWatchlistRun(watchlist);
 
     res.json({
       success: true,
-      data: { 
+      data: {
         watchlist,
-        runResult: {
-          success: runSuccess,
-          matchesFound
-        }
+        runResult
       },
-      message: runSuccess ? 'Watchlist run completed successfully' : 'Watchlist run failed'
+      message:
+        runResult.matchesFound > 0
+          ? `Watchlist run completed — ${runResult.matchesFound} new match(es) found`
+          : 'Watchlist run completed — no new matches found'
     });
 
   } catch (error) {

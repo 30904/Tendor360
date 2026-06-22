@@ -78,67 +78,26 @@ class RfpCopilotService {
     throw new Error('Invalid OpenAI response structure');
   }
 
-  async callMockLLM(systemPrompt) {
-    console.warn(`⚠️ Using MOCK LLM Fallback due to API failures...`);
-    let mockData = {};
-    if (systemPrompt.includes("extract structured requirements")) {
-      mockData = {
-        requirements: [
-          { requirement: "Provide a comprehensive project plan", category: "GENERAL", mandatory: true, description: "Must include timelines and milestones" },
-          { requirement: "Ensure compliance with data privacy regulations", category: "COMPLIANCE", mandatory: true, description: "GDPR/HIPAA compliance" }
-        ],
-        summary: "This is a mock summary generated because the LLM APIs failed to authenticate."
-      };
-    } else if (systemPrompt.includes("quality assurance auditor")) {
-      mockData = {
-        requirementsCovered: [],
-        fabricatedClaims: [],
-        overallScore: 85,
-        summary: "Mock fact check summary."
-      };
-    } else {
-      // Try to extract the title from the system prompt to keep the UI looking normal
-      let originalTitle = "Mock Section";
-      if (systemPrompt.includes("executive summaries")) originalTitle = "Executive Summary";
-      else if (systemPrompt.includes("technical approach")) originalTitle = "Technical Approach";
-      else if (systemPrompt.includes("methodology section")) originalTitle = "Methodology & Approach";
-      else if (systemPrompt.includes("team qualifications")) originalTitle = "Team Qualifications";
-      else if (systemPrompt.includes("past performance section")) originalTitle = "Past Performance";
-      else if (systemPrompt.includes("compliance officer")) originalTitle = "Compliance Matrix";
-      else if (systemPrompt.includes("commercial analyst")) originalTitle = "Pricing Summary";
-      else if (systemPrompt.includes("risk management")) originalTitle = "Risk Mitigation";
-
-      mockData = {
-        title: originalTitle,
-        content: "## " + originalTitle + "\nThis is auto-generated mock content because both Gemini and OpenAI LLM APIs failed. In a real environment, this would contain the generated text based on the provided context.",
-        keyPoints: ["Mock point 1"],
-        addressedRequirements: [],
-        wordCount: 30,
-        selfConfidence: 90
-      };
-    }
-
-    return {
-      text: JSON.stringify(mockData),
-      model: 'mock-llm-fallback',
-      tokensUsed: 0
-    };
-  }
-
   /**
-   * Call LLM with automatic failover: Gemini primary → OpenAI fallback → Mock fallback.
+   * Call LLM with automatic failover: Gemini primary → OpenAI fallback.
+   * Fails closed when both providers are unavailable — no mock/synthetic output.
    */
   async callLLM(systemPrompt, userPrompt) {
+    let geminiError;
     try {
       return await this.callGemini(systemPrompt, userPrompt);
-    } catch (geminiError) {
-      console.warn(`⚠️ Gemini failed (${geminiError.message}), falling back to OpenAI...`);
-      try {
-        return await this.callOpenAI(systemPrompt, userPrompt);
-      } catch (openaiError) {
-        console.warn(`⚠️ OpenAI failed (${openaiError.message}), falling back to MOCK...`);
-        return this.callMockLLM(systemPrompt);
-      }
+    } catch (error) {
+      geminiError = error;
+      console.warn(`⚠️ Gemini failed (${error.message}), falling back to OpenAI...`);
+    }
+
+    try {
+      return await this.callOpenAI(systemPrompt, userPrompt);
+    } catch (openaiError) {
+      console.error(`❌ OpenAI failed (${openaiError.message}) after Gemini failure`);
+      throw new Error(
+        `AI generation unavailable: Gemini (${geminiError.message}); OpenAI (${openaiError.message})`
+      );
     }
   }
 
@@ -271,14 +230,8 @@ class RfpCopilotService {
         model: result.model
       };
     } catch (error) {
-      console.error('⚠️ Fact-check validation failed, returning conservative score:', error.message);
-      return {
-        factCheckScore: 50,
-        requirementsCovered: [],
-        fabricatedClaims: [],
-        summary: 'Fact-check could not be completed. Manual review recommended.',
-        model: 'fallback'
-      };
+      console.error('⚠️ Fact-check validation failed:', error.message);
+      throw error;
     }
   }
 

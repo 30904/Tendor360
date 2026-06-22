@@ -39,7 +39,8 @@ function buildConnectorConfigFromSource(source = {}, company = null) {
     parsingConfig: source.parsingConfig || {},
     keywords: source.keywords || [],
     keywordFilePath: source.keywordFilePath || company?.settings?.discovery?.keywordFilePath || null,
-    sourceName: source.name
+    sourceName: source.name,
+    demoMode: discovery.demoMode === true
   };
 }
 

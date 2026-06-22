@@ -35,6 +35,7 @@ require('../modules/go-no-go/models/DecisionHistory');
 require('../modules/integrations/models/IntegrationConnector');
 require('../modules/integrations/models/ApiCredential');
 require('../modules/integrations/models/WebhookSubscription');
+require('../modules/integrations/models/WebhookDelivery');
 require('./TenderSource');
 require('./GlobalKeyword');
 require('./RfpResponse');

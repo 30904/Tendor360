@@ -32,6 +32,14 @@ const { buildConnectorCatalog, isConnectorConfigured } = require('../modules/int
 const Company = require('../models/Company');
 const ExcelKeywordLoaderService = require('../modules/tender-discovery/services/ExcelKeywordLoaderService');
 const GlobalKeyword = require('../models/GlobalKeyword');
+const crypto = require('crypto');
+const {
+  webhookDeliveryService,
+  isValidWebhookUrl,
+  maskWebhookSecret
+} = require('../modules/integrations/services/WebhookDeliveryService');
+const WebhookDelivery = require('../modules/integrations/models/WebhookDelivery');
+const { WEBHOOK_EVENTS } = require('../modules/integrations/constants/webhookEvents');
 
 exports.getDiscoveryDashboard = catchAsync(async (req, res) => {
   const companyId = req.companyId;
@@ -519,7 +527,14 @@ exports.getIntegrationHub = catchAsync(async (req, res) => {
   ]);
   res.json({
     success: true,
-    data: { connectors, credentials, webhooks, marketplace, connectorCatalog }
+    data: {
+      connectors,
+      credentials,
+      webhooks: webhooks.map(maskWebhookSecret),
+      webhookEvents: WEBHOOK_EVENTS,
+      marketplace,
+      connectorCatalog
+    }
   });
 });
 
@@ -537,6 +552,171 @@ exports.upsertIntegrationConnector = catchAsync(async (req, res) => {
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
   res.json({ success: true, data: { connector } });
+});
+
+exports.listWebhookSubscriptions = catchAsync(async (req, res) => {
+  const webhooks = await webhookDeliveryService.listSubscriptions(req.companyId);
+  res.json({
+    success: true,
+    data: {
+      webhooks: webhooks.map(maskWebhookSecret),
+      events: WEBHOOK_EVENTS
+    }
+  });
+});
+
+exports.createWebhookSubscription = catchAsync(async (req, res) => {
+  const { name, targetUrl, events = [], secret, status = 'active' } = req.body;
+
+  if (!name?.trim() || !targetUrl?.trim()) {
+    return res.status(400).json({
+      success: false,
+      message: 'name and targetUrl are required'
+    });
+  }
+
+  if (!Array.isArray(events) || events.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'At least one webhook event is required'
+    });
+  }
+
+  const invalidEvents = events.filter((event) => event !== '*' && !WEBHOOK_EVENTS.includes(event));
+  if (invalidEvents.length) {
+    return res.status(400).json({
+      success: false,
+      message: `Unsupported webhook events: ${invalidEvents.join(', ')}`
+    });
+  }
+
+  if (!isValidWebhookUrl(targetUrl.trim())) {
+    return res.status(400).json({
+      success: false,
+      message: 'targetUrl must be a valid http or https URL'
+    });
+  }
+
+  const webhook = await WebhookSubscription.create({
+    companyId: req.companyId,
+    name: name.trim(),
+    targetUrl: targetUrl.trim(),
+    events: events.map((event) => String(event).trim()),
+    secret: secret?.trim() || crypto.randomBytes(32).toString('hex'),
+    status
+  });
+
+  res.status(201).json({
+    success: true,
+    data: { webhook: maskWebhookSecret(webhook) },
+    message: 'Webhook subscription created'
+  });
+});
+
+exports.updateWebhookSubscription = catchAsync(async (req, res) => {
+  const webhook = await WebhookSubscription.findOne({
+    _id: req.params.id,
+    companyId: req.companyId,
+    isDeleted: false
+  });
+
+  if (!webhook) {
+    return res.status(404).json({ success: false, message: 'Webhook subscription not found' });
+  }
+
+  const { name, targetUrl, events, secret, status } = req.body;
+
+  if (name !== undefined) webhook.name = String(name).trim();
+  if (targetUrl !== undefined) {
+    if (!isValidWebhookUrl(String(targetUrl).trim())) {
+      return res.status(400).json({
+        success: false,
+        message: 'targetUrl must be a valid http or https URL'
+      });
+    }
+    webhook.targetUrl = String(targetUrl).trim();
+  }
+  if (events !== undefined) {
+    if (!Array.isArray(events) || events.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one webhook event is required'
+      });
+    }
+    const invalidEvents = events.filter((event) => event !== '*' && !WEBHOOK_EVENTS.includes(event));
+    if (invalidEvents.length) {
+      return res.status(400).json({
+        success: false,
+        message: `Unsupported webhook events: ${invalidEvents.join(', ')}`
+      });
+    }
+    webhook.events = events.map((event) => String(event).trim());
+  }
+  if (secret !== undefined && secret !== '********') {
+    webhook.secret = String(secret).trim();
+  }
+  if (status !== undefined) webhook.status = status;
+
+  await webhook.save();
+
+  res.json({
+    success: true,
+    data: { webhook: maskWebhookSecret(webhook) },
+    message: 'Webhook subscription updated'
+  });
+});
+
+exports.deleteWebhookSubscription = catchAsync(async (req, res) => {
+  const webhook = await WebhookSubscription.findOne({
+    _id: req.params.id,
+    companyId: req.companyId,
+    isDeleted: false
+  });
+
+  if (!webhook) {
+    return res.status(404).json({ success: false, message: 'Webhook subscription not found' });
+  }
+
+  webhook.isDeleted = true;
+  webhook.status = 'inactive';
+  await webhook.save();
+
+  res.json({ success: true, message: 'Webhook subscription deleted' });
+});
+
+exports.testWebhookSubscription = catchAsync(async (req, res) => {
+  const webhook = await WebhookSubscription.findOne({
+    _id: req.params.id,
+    companyId: req.companyId,
+    isDeleted: false
+  });
+
+  if (!webhook) {
+    return res.status(404).json({ success: false, message: 'Webhook subscription not found' });
+  }
+
+  const result = await webhookDeliveryService.sendTestDelivery(webhook);
+
+  res.json({
+    success: true,
+    data: { delivery: result },
+    message: 'Test webhook delivered successfully'
+  });
+});
+
+exports.listWebhookDeliveries = catchAsync(async (req, res) => {
+  const limit = Number(req.query.limit || 20);
+  const filter = {
+    companyId: req.companyId,
+    subscriptionId: req.params.id
+  };
+
+  const deliveries = await WebhookDelivery.find(filter)
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .lean();
+
+  res.json({ success: true, data: { deliveries } });
 });
 
 exports.getGovernanceDashboard = catchAsync(async (req, res) => {

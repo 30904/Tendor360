@@ -60,6 +60,7 @@ import MarketDeclarations from './pages/tender-intelligence/MarketDeclarations'
 // Pre-Qualification Registry Subpages
 import CustomerManagement from './pages/tender-intelligence/prequalification/CustomerManagement'
 import CertificationTracking from './pages/tender-intelligence/prequalification/CertificationTracking'
+import PreQualificationSubmodule from './pages/tender-intelligence/prequalification/PreQualificationSubmodule'
 
 // Document Management Subpages
 import ContentLibrary from './pages/document-management/ContentLibrary'
@@ -71,6 +72,7 @@ import RedactionRules from './pages/document-management/RedactionRules'
 import ESignPackages from './pages/document-management/ESignPackages'
 import LegalHold from './pages/document-management/LegalHold'
 import AIAnalysis from './pages/document-management/AIAnalysis'
+import GuaranteeTemplates from './pages/document-management/GuaranteeTemplates'
 
 // Pricing & Simulation Subpages
 import Scenarios from './pages/pricing-simulation/Scenarios'
@@ -107,7 +109,7 @@ import CalendarReports from './pages/tender-calendar/CalendarReports'
 
 // Competitor Intelligence Subpages
 import Profiling from './pages/tender-intelligence/competitors/Profiling'
-import WinLossAnalysis from './pages/tender-intelligence/competitors/WinLossAnalysis'
+import WinLossAnalysis from './pages/tender-intelligence/WinLossAnalysis'
 import WinLossAnalysisByCompetitor from './pages/tender-intelligence/competitors/WinLossAnalysisByCompetitor'
 
 // Admin & Config Subpages
@@ -178,6 +180,8 @@ import TenderIntelligenceRtmPage from './pages/ai-document-intelligence/TenderIn
 import CrmAccountIntelligencePage from './pages/ai-document-intelligence/CrmAccountIntelligencePage'
 import GoNoGoHub from './pages/go-no-go/GoNoGoHub'
 import CollaborationHub from './pages/collaboration/CollaborationHub'
+import IntegrationsHub from './pages/integrations/IntegrationsHub'
+import GovernanceAuditHub from './pages/governance/GovernanceAuditHub'
 import { userHasAnyRole, resolveRequiredRoles } from './utils/roles'
 
 // Protected Route Component
@@ -256,8 +260,16 @@ function App() {
           <Route path="ai-document-intelligence/crm" element={<CrmAccountIntelligencePage />} />
           <Route path="go-no-go" element={<GoNoGoHub />} />
           <Route path="collaboration" element={<CollaborationHub />} />
-          <Route path="integrations" element={<Navigate to="/admin-config" replace />} />
-          <Route path="governance-audit" element={<Navigate to="/admin-config" replace />} />
+          <Route path="integrations" element={
+            <ProtectedRoute requiredRoles={['SYSTEM ADMINISTRATOR']}>
+              <IntegrationsHub />
+            </ProtectedRoute>
+          } />
+          <Route path="governance-audit" element={
+            <ProtectedRoute requiredRoles={['SYSTEM ADMINISTRATOR']}>
+              <GovernanceAuditHub />
+            </ProtectedRoute>
+          } />
           {/* Tender Intelligence Routes */}
           <Route path="tender-intelligence" element={<TenderIntelligence />} />
           <Route path="tender-intelligence/pipeline" element={<Pipeline />} />
@@ -270,11 +282,13 @@ function App() {
           <Route path="tender-intelligence/competitors" element={<Competitors />} />
       <Route path="tender-intelligence/competitors/profiling" element={<Profiling />} />
       <Route path="tender-intelligence/competitors/win-loss-analysis" element={<WinLossAnalysis />} />
+      <Route path="tender-intelligence/win-loss-analysis" element={<WinLossAnalysis />} />
       <Route path="tender-intelligence/competitors/win-loss-analysis-by-competitor" element={<WinLossAnalysisByCompetitor />} />
           <Route path="tender-intelligence/prequalification" element={<PreQualification />} />
           <Route path="tender-intelligence/prequalification/customer-management/new" element={<CustomerManagement />} />
           <Route path="tender-intelligence/prequalification/customer-management" element={<CustomerManagement />} />
           <Route path="tender-intelligence/prequalification/certification-tracking" element={<CertificationTracking />} />
+          <Route path="tender-intelligence/prequalification/:slug" element={<PreQualificationSubmodule />} />
           <Route path="tender-intelligence/declarations" element={<TIDeclarations />} />
           <Route path="tender-intelligence/sources-watchlists" element={<Navigate to="/tender-intelligence/sources" replace />} />
           <Route path="tender-intelligence/prequalification-registry" element={<PreQualificationRegistry />} />
@@ -309,6 +323,7 @@ function App() {
           <Route path="document-management/esign-packages" element={<ESignPackages />} />
           <Route path="document-management/legal-hold" element={<LegalHold />} />
           <Route path="document-management/ai-analysis" element={<AIAnalysis />} />
+          <Route path="document-management/guarantee-templates" element={<GuaranteeTemplates />} />
           
           {/* Pricing & Simulation Routes */}
           <Route path="pricing-simulation" element={<PricingSimulation />} />
@@ -395,8 +410,8 @@ function App() {
               <Branding />
             </ProtectedRoute>
           } />
-          <Route path="admin-config/governance" element={<Navigate to="/admin-config" replace />} />
-          <Route path="admin-config/integrations" element={<Navigate to="/admin-config" replace />} />
+          <Route path="admin-config/governance" element={<Navigate to="/governance-audit" replace />} />
+          <Route path="admin-config/integrations" element={<Navigate to="/integrations" replace />} />
           <Route path="admin-config/localization" element={
             <ProtectedRoute requiredRoles={['SYSTEM ADMINISTRATOR']}>
               <Localization />

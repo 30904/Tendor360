@@ -14,8 +14,8 @@ class GovWinConnector extends BaseConnector {
 
   buildDemoOpportunities(config = {}, limit = 5) {
     const prefix = config.sourceName || 'GovWin';
-    return Array.from({ length: Math.min(limit, 5) }).map((_, i) =>
-      this.normalizeOpportunity(
+    return Array.from({ length: Math.min(limit, 5) }).map((_, i) => {
+      const opportunity = this.normalizeOpportunity(
         {
           externalId: `DEMO-GOVWIN-${Date.now()}-${i}`,
           reference: `DEMO-GW-${1000 + i}`,
@@ -35,36 +35,32 @@ class GovWinConnector extends BaseConnector {
           attachments: [
             { name: 'Solicitation package.pdf', url: 'demo://govwin/solicitation.pdf' },
             { name: 'Pricing worksheet.xlsx', url: 'demo://govwin/pricing.xlsx' }
-          ]
+          ],
+          isDemo: true
         },
         { name: 'GovWin (demo)' }
-      )
-    );
+      );
+      opportunity.metadata.isDemo = true;
+      return opportunity;
+    });
+  }
+
+  isExplicitDemoMode(config = {}) {
+    return config.demoMode === true;
   }
 
   async discover({ config = {}, cursor, limit = 25 }) {
-    if (process.env.DISCOVERY_DEMO_FALLBACK === 'true' || config.demoMode) {
+    if (this.isExplicitDemoMode(config)) {
       return {
         opportunities: this.buildDemoOpportunities(config, limit),
         nextCursor: null,
-        logs: [{ level: 'info', message: 'GovWin demo fallback — API bypassed for development' }]
+        isDemo: true,
+        logs: [{ level: 'info', message: 'GovWin explicit demo mode — API bypassed (demo data only)' }]
       };
     }
 
-    try {
-      this.validateConfig(config);
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        return {
-          opportunities: this.buildDemoOpportunities(config, limit),
-          nextCursor: null,
-          logs: [{ level: 'warning', message: `GovWin config incomplete — demo data used (${error.message})` }]
-        };
-      }
-      throw error;
-    }
+    this.validateConfig(config);
 
-    try {
     const response = await axios.get(`${config.baseUrl.replace(/\/$/, '')}/opportunities`, {
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
@@ -80,18 +76,6 @@ class GovWinConnector extends BaseConnector {
     });
 
     if (response.status >= 400) {
-      if (process.env.NODE_ENV === 'development') {
-        return {
-          opportunities: this.buildDemoOpportunities(config, limit),
-          nextCursor: null,
-          logs: [
-            {
-              level: 'warning',
-              message: `GovWin API ${response.status} — demo opportunities returned for development`
-            }
-          ]
-        };
-      }
       throw new Error(
         response.data?.message || `GovWin request failed with status ${response.status}`
       );
@@ -147,19 +131,20 @@ class GovWinConnector extends BaseConnector {
         }
       ]
     };
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        return {
-          opportunities: this.buildDemoOpportunities(config, limit),
-          nextCursor: null,
-          logs: [{ level: 'warning', message: `GovWin unreachable — demo data (${error.message})` }]
-        };
-      }
-      throw error;
-    }
   }
 
   async testConnection({ config = {} }) {
+    if (this.isExplicitDemoMode(config)) {
+      const result = await this.discover({ config, limit: 1 });
+      return {
+        ok: true,
+        isDemo: true,
+        message: `GovWin demo mode — preview count: ${result.opportunities.length} (no live API call).`,
+        sampleCount: result.opportunities.length
+      };
+    }
+
+    this.validateConfig(config);
     const result = await this.discover({ config, limit: 1 });
     return {
       ok: true,

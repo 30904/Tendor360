@@ -93,6 +93,12 @@ router.post('/automation/jobs', requireAuth, requireRoles(...managerRoles), cont
 
 router.get('/integrations/hub', requireAuth, controller.getIntegrationHub);
 router.post('/integrations/connectors', requireAuth, requireRoles('SYSTEM ADMINISTRATOR'), controller.upsertIntegrationConnector);
+router.get('/integrations/webhooks', requireAuth, controller.listWebhookSubscriptions);
+router.post('/integrations/webhooks', requireAuth, requireRoles('SYSTEM ADMINISTRATOR'), controller.createWebhookSubscription);
+router.put('/integrations/webhooks/:id', requireAuth, requireRoles('SYSTEM ADMINISTRATOR'), controller.updateWebhookSubscription);
+router.delete('/integrations/webhooks/:id', requireAuth, requireRoles('SYSTEM ADMINISTRATOR'), controller.deleteWebhookSubscription);
+router.post('/integrations/webhooks/:id/test', requireAuth, requireRoles('SYSTEM ADMINISTRATOR'), controller.testWebhookSubscription);
+router.get('/integrations/webhooks/:id/deliveries', requireAuth, controller.listWebhookDeliveries);
 
 router.get('/governance/dashboard', requireAuth, controller.getGovernanceDashboard);
 router.get('/documents/intelligence', requireAuth, controller.listDocumentIntelligence);

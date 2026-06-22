@@ -15,7 +15,8 @@ const RFPManagement = () => {
       description: 'Structured metadata, timelines, scopes, and response skeleton.',
       path: '/rfp-management/create',
       color: 'primary',
-      status: 'Ready'
+      status: 'Ready',
+      statusVariant: 'success'
     },
     {
       id: 'team-collaboration',
@@ -23,7 +24,8 @@ const RFPManagement = () => {
       description: 'Section RACI, handoffs, and progress across authoring teams.',
       path: '/rfp-management/teams',
       color: 'success',
-      status: 'Ready'
+      status: 'Coming Soon',
+      statusVariant: 'warning'
     },
     {
       id: 'publish-rfp',
@@ -31,7 +33,8 @@ const RFPManagement = () => {
       description: 'Approver gates plus controlled release to short-listed vendors.',
       path: '/rfp-management/publish',
       color: 'warning',
-      status: 'Ready'
+      status: 'Coming Soon',
+      statusVariant: 'warning'
     },
     {
       id: 'rfp-tracking',
@@ -39,7 +42,8 @@ const RFPManagement = () => {
       description: 'Participation funnel, milestones, reminders, and response health.',
       path: '/rfp-management/tracking',
       color: 'info',
-      status: 'Ready'
+      status: 'Ready',
+      statusVariant: 'success'
     },
     {
       id: 'ai-copilot',
@@ -47,7 +51,8 @@ const RFPManagement = () => {
       description: 'Prompt-guided drafting, tone polish, and executive summaries.',
       path: '/rfp-management/ai-copilot',
       color: 'primary',
-      status: 'AI Enabled'
+      status: 'AI Enabled',
+      statusVariant: 'primary'
     }
   ]
 
@@ -82,7 +87,11 @@ const RFPManagement = () => {
                       <div className="module-text">
                           <div className="module-header-row">
                             <h5 className="module-title">{module.title}</h5>
-                            <Badge bg="light" text="dark" className="module-status-badge">
+                            <Badge
+                              bg={module.statusVariant}
+                              text={module.statusVariant === 'warning' ? 'dark' : 'white'}
+                              className="module-status-badge"
+                            >
                               {module.status}
                             </Badge>
                           </div>

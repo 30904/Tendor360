@@ -684,6 +684,7 @@ const HUB_MODULE_ICONS = {
   'consortium-partners': IcConsortium,
   approvals: IcApprovalStamp,
   'guarantees-pre-award': IcBonds,
+  'guarantee-templates': IcBonds,
   'workspace-tasks': IcWorkspaceTask,
   scenarios: IcCalc,
   guardrails: IcGuardrail,

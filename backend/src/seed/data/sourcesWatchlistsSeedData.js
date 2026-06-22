@@ -69,7 +69,8 @@ function buildHealthcareDiscoveryConnectors(companyCode) {
         lookbackHours: 24,
         pageSize: 50,
         searchQuery: 'hospital OR health system OR laboratory modernization',
-        scheduleEnabled: true
+        scheduleEnabled: true,
+        demoMode: true
       },
       keywords: ['hospital', 'health system', 'public health', 'laboratory'],
       lastSync: daysFromNow(-0.2),

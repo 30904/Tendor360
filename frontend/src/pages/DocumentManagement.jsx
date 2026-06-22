@@ -71,6 +71,13 @@ const DocumentManagement = () => {
       description: 'AI-assisted extraction, classification, and risk signals.',
       path: '/document-management/ai-analysis',
       color: 'primary'
+    },
+    {
+      id: 'guarantee-templates',
+      title: 'Guarantee Templates',
+      description: 'Bank and surety guarantee templates with regional compliance support.',
+      path: '/document-management/guarantee-templates',
+      color: 'success'
     }
   ]
 

@@ -17,6 +17,14 @@ const webhookSubscriptionSchema = new mongoose.Schema(
       enum: ['active', 'inactive'],
       default: 'active'
     },
+    deliveryCount: { type: Number, default: 0, min: 0 },
+    failureCount: { type: Number, default: 0, min: 0 },
+    lastDeliveredAt: { type: Date, default: null },
+    lastDeliveryStatus: {
+      type: String,
+      enum: ['success', 'failed']
+    },
+    lastError: { type: String, trim: true, default: null },
     isDeleted: { type: Boolean, default: false }
   },
   { timestamps: true, collection: 'WebhookSubscription' }
