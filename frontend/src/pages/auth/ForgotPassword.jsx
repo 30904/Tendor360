@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
-import { Form, Button, Alert } from 'react-bootstrap'
+import { Form, Button } from 'react-bootstrap'
 import { BiMailSend, BiArrowBack, BiShield, BiLock, BiCheckCircle } from 'react-icons/bi'
 import { Link } from 'react-router-dom'
 import { toast } from 'react-toastify'
+import { authAPI } from '../../services/authAPI'
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('')
@@ -12,18 +13,18 @@ const ForgotPassword = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
-    
+
     try {
-      // TODO: Implement forgot password API call
-      // For now, simulate success
-      setTimeout(() => {
-        setIsLoading(false)
-        setIsSubmitted(true)
-        toast.success('Password reset link sent to your email!')
-      }, 1000)
+      await authAPI.forgotPassword(email.trim())
+      setIsSubmitted(true)
+      toast.success('If an account exists, reset instructions have been sent.')
     } catch (error) {
+      const message =
+        error.response?.data?.message ||
+        'Failed to send reset link. Please try again.'
+      toast.error(message)
+    } finally {
       setIsLoading(false)
-      toast.error('Failed to send reset link. Please try again.')
     }
   }
 
@@ -48,7 +49,7 @@ const ForgotPassword = () => {
                   <BiCheckCircle className="text-success mb-3" style={{ fontSize: '3rem' }} />
                   <h2 className="form-title">Check Your Email</h2>
                   <p className="form-subtitle">
-                    We've sent password reset instructions to
+                    If an account exists for this address, we sent password reset instructions to
                   </p>
                   <div className="alert alert-info d-flex align-items-center">
                     <BiMailSend className="me-2" />

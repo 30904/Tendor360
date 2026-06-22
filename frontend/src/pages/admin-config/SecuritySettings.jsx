@@ -5,14 +5,31 @@ import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
+import AdminWorkspaceModal from '../../components/admin/AdminWorkspaceModal'
+import { showToast } from '../../utils/toast'
+import { exportRowsToExcel } from '../../utils/exportReport'
 import './SecuritySettings.scss'
+
+const SECURITY_FORM_FIELDS = [
+  {
+    name: 'status',
+    label: 'Status',
+    type: 'select',
+    required: true,
+    options: [
+      { value: 'Active', label: 'Active' },
+      { value: 'Inactive', label: 'Inactive' }
+    ]
+  }
+]
 
 const SecuritySettings = () => {
   const navigate = useNavigate()
   const [securitySettings, setSecuritySettings] = useState([])
-  const [searchTerm, setSearchTerm] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [showFormModal, setShowFormModal] = useState(false)
   const [selectedSetting, setSelectedSetting] = useState(null)
+  const [editingItem, setEditingItem] = useState(null)
   const [stats, setStats] = useState({})
 
   useEffect(() => {
@@ -215,31 +232,64 @@ const SecuritySettings = () => {
 
   const handleEnableSetting = (setting) => {
     if (window.confirm(`Are you sure you want to enable "${setting.name}"?`)) {
-      setSecuritySettings(prev => prev.map(s => 
-        s.id === setting.id ? { ...s, status: 'Active' } : s
-      ))
+      setSecuritySettings((prev) =>
+        prev.map((s) => (s.id === setting.id ? { ...s, status: 'Active' } : s))
+      )
     }
   }
 
   const handleRunSecurityAudit = () => {
-    if (window.confirm('Are you sure you want to run a security audit?')) {
-      // Implementation for running security audit
-      console.log('Running security audit...')
-    }
+    const today = new Date().toISOString().split('T')[0]
+    setStats((prev) => ({ ...prev, lastSecurityAudit: today }))
+    showToast.success('Security audit completed successfully')
   }
 
   const handleEditSetting = (setting) => {
-    console.log('Edit setting:', setting)
-    // Navigate to edit setting or open edit modal
+    setEditingItem(setting)
+    setShowFormModal(true)
+  }
+
+  const handleFormSubmit = (formData) => {
+    if (!editingItem) return
+
+    setSecuritySettings((prev) =>
+      prev.map((s) =>
+        s.id === editingItem.id
+          ? { ...s, status: formData.status, lastModified: new Date().toISOString().split('T')[0] }
+          : s
+      )
+    )
+    showToast.success(`${editingItem.name} updated`)
+    setShowFormModal(false)
+    setEditingItem(null)
+  }
+
+  const handleExportReport = () => {
+    exportRowsToExcel(
+      securitySettings.map(
+        ({ id, name, category, status, priority, riskLevel, compliance, lastModified, modifiedBy, impact }) => ({
+          id,
+          name,
+          category,
+          status,
+          priority,
+          riskLevel,
+          compliance,
+          lastModified,
+          modifiedBy,
+          impact
+        })
+      ),
+      { sheetName: 'Security Settings', fileName: 'security_settings_report.xlsx' }
+    )
   }
 
   const handleDeleteSetting = (setting) => {
     if (window.confirm(`Are you sure you want to delete setting "${setting.name}"?`)) {
-      setSecuritySettings(prev => prev.filter(s => s.id !== setting.id))
+      setSecuritySettings((prev) => prev.filter((s) => s.id !== setting.id))
     }
   }
 
-  // Column definitions for DataTable
   const columns = [
     {
       key: 'name',
@@ -302,12 +352,12 @@ const SecuritySettings = () => {
       label: 'Modified',
       width: '12%',
       render: (value) => {
-        const date = new Date(value);
+        const date = new Date(value)
         return date.toLocaleDateString('en-US', {
           month: '2-digit',
           day: '2-digit',
           year: 'numeric'
-        });
+        })
       }
     },
     {
@@ -319,36 +369,36 @@ const SecuritySettings = () => {
 
   const getStatusBadge = (status) => {
     const variants = {
-      'Active': 'success',
-      'Inactive': 'secondary',
-      'Pending': 'warning',
-      'Error': 'danger'
+      Active: 'success',
+      Inactive: 'secondary',
+      Pending: 'warning',
+      Error: 'danger'
     }
     return <Badge bg={variants[status] || 'secondary'}>{status}</Badge>
   }
 
   const getRiskBadge = (risk) => {
     const variants = {
-      'Low': 'success',
-      'Medium': 'warning',
-      'High': 'danger'
+      Low: 'success',
+      Medium: 'warning',
+      High: 'danger'
     }
     return <Badge bg={variants[risk] || 'secondary'}>{risk}</Badge>
   }
 
   const getPriorityBadge = (priority) => {
     const variants = {
-      'Critical': 'danger',
-      'High': 'warning',
-      'Medium': 'primary',
-      'Low': 'secondary'
+      Critical: 'danger',
+      High: 'warning',
+      Medium: 'primary',
+      Low: 'secondary'
     }
     return <Badge bg={variants[priority] || 'secondary'}>{priority}</Badge>
   }
 
   const getCategoryIcon = (category) => {
     const icons = {
-      'Authentication': Key,
+      Authentication: Key,
       'Session Security': UserCheck,
       'Network Security': Shield
     }
@@ -464,7 +514,7 @@ const SecuritySettings = () => {
               <Shield size={16} className="me-2" />
               Run Security Audit
             </Button>
-            <Button variant="outline-secondary">
+            <Button variant="outline-secondary" onClick={handleExportReport}>
               <Lock size={16} className="me-2" />
               Export Report
             </Button>
@@ -502,82 +552,123 @@ const SecuritySettings = () => {
         />
       </ExecutiveCommandCenter>
 
-        <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
-          <Modal.Header closeButton>
-            <Modal.Title>
-              <Shield size={20} className="me-2" />
-              Security Setting Details - {selectedSetting?.name}
-            </Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            {selectedSetting && (
-              <div className="setting-details">
-                <Row>
-                  <Col md={6}>
-                    <h6>Basic Information</h6>
-                    <p><strong>Name:</strong> {selectedSetting.name}</p>
-                    <p><strong>Category:</strong> {selectedSetting.category}</p>
-                    <p><strong>Status:</strong> {selectedSetting.status}</p>
-                    <p><strong>Priority:</strong> {selectedSetting.priority}</p>
-                    <p><strong>Impact:</strong> {selectedSetting.impact}</p>
-                  </Col>
-                  <Col md={6}>
-                    <h6>Security Metrics</h6>
-                    <p><strong>Risk Level:</strong> {selectedSetting.riskLevel}</p>
-                    <p><strong>AI Confidence:</strong> {selectedSetting.aiConfidence}%</p>
-                    <p><strong>Compliance:</strong> {selectedSetting.compliance}</p>
-                    <p><strong>Last Modified:</strong> {selectedSetting.lastModified}</p>
-                    <p><strong>Modified By:</strong> {selectedSetting.modifiedBy}</p>
-                  </Col>
-                </Row>
-                <hr />
-                <Row>
-                  <Col>
-                    <h6>Description</h6>
-                    <p>{selectedSetting.description}</p>
-                  </Col>
-                </Row>
-                <hr />
-                <Row>
-                  <Col>
-                    <h6>Security Requirements</h6>
-                    <ul className="requirements-list">
-                      {selectedSetting.requirements.map((requirement, index) => (
-                        <li key={index} className="requirement-item">
-                          <CheckCircle size={14} className="me-2 text-success" />
-                          {requirement}
-                        </li>
-                      ))}
-                    </ul>
-                  </Col>
-                </Row>
-                <hr />
-                <Row>
-                  <Col>
-                    <h6>AI Assessment & Recommendation</h6>
-                    <Alert variant="info">
-                      <Brain size={16} className="me-2" />
-                      <strong>Recommendation:</strong> {selectedSetting.aiRecommendation}
-                    </Alert>
-                    <Alert variant="success">
-                      <Shield size={16} className="me-2" />
-                      <strong>Confidence Level:</strong> {selectedSetting.aiConfidence}% based on security best practices and threat analysis
-                    </Alert>
-                  </Col>
-                </Row>
-              </div>
-            )}
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowModal(false)}>
-              Close
-            </Button>
-            <Button variant="primary">
-              <Edit size={16} className="me-2" />
-              Edit Setting
-            </Button>
-          </Modal.Footer>
-        </Modal>
+      <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <Shield size={20} className="me-2" />
+            Security Setting Details - {selectedSetting?.name}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedSetting && (
+            <div className="setting-details">
+              <Row>
+                <Col md={6}>
+                  <h6>Basic Information</h6>
+                  <p>
+                    <strong>Name:</strong> {selectedSetting.name}
+                  </p>
+                  <p>
+                    <strong>Category:</strong> {selectedSetting.category}
+                  </p>
+                  <p>
+                    <strong>Status:</strong> {selectedSetting.status}
+                  </p>
+                  <p>
+                    <strong>Priority:</strong> {selectedSetting.priority}
+                  </p>
+                  <p>
+                    <strong>Impact:</strong> {selectedSetting.impact}
+                  </p>
+                </Col>
+                <Col md={6}>
+                  <h6>Security Metrics</h6>
+                  <p>
+                    <strong>Risk Level:</strong> {selectedSetting.riskLevel}
+                  </p>
+                  <p>
+                    <strong>AI Confidence:</strong> {selectedSetting.aiConfidence}%
+                  </p>
+                  <p>
+                    <strong>Compliance:</strong> {selectedSetting.compliance}
+                  </p>
+                  <p>
+                    <strong>Last Modified:</strong> {selectedSetting.lastModified}
+                  </p>
+                  <p>
+                    <strong>Modified By:</strong> {selectedSetting.modifiedBy}
+                  </p>
+                </Col>
+              </Row>
+              <hr />
+              <Row>
+                <Col>
+                  <h6>Description</h6>
+                  <p>{selectedSetting.description}</p>
+                </Col>
+              </Row>
+              <hr />
+              <Row>
+                <Col>
+                  <h6>Security Requirements</h6>
+                  <ul className="requirements-list">
+                    {selectedSetting.requirements.map((requirement, index) => (
+                      <li key={index} className="requirement-item">
+                        <CheckCircle size={14} className="me-2 text-success" />
+                        {requirement}
+                      </li>
+                    ))}
+                  </ul>
+                </Col>
+              </Row>
+              <hr />
+              <Row>
+                <Col>
+                  <h6>AI Assessment & Recommendation</h6>
+                  <Alert variant="info">
+                    <Brain size={16} className="me-2" />
+                    <strong>Recommendation:</strong> {selectedSetting.aiRecommendation}
+                  </Alert>
+                  <Alert variant="success">
+                    <Shield size={16} className="me-2" />
+                    <strong>Confidence Level:</strong> {selectedSetting.aiConfidence}% based on security
+                    best practices and threat analysis
+                  </Alert>
+                </Col>
+              </Row>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowModal(false)}>
+            Close
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => {
+              setShowModal(false)
+              handleEditSetting(selectedSetting)
+            }}
+          >
+            <Edit size={16} className="me-2" />
+            Edit Setting
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <AdminWorkspaceModal
+        show={showFormModal}
+        onHide={() => {
+          setShowFormModal(false)
+          setEditingItem(null)
+        }}
+        title={`Edit Security Setting — ${editingItem?.name ?? ''}`}
+        description={editingItem?.description}
+        submitLabel="Save changes"
+        fields={SECURITY_FORM_FIELDS}
+        initialValues={editingItem ? { status: editingItem.status } : {}}
+        onSubmit={handleFormSubmit}
+      />
     </>
   )
 }

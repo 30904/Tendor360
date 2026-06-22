@@ -2,16 +2,69 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { Row, Col, Button, Form, Table, Badge, Modal, Alert, ProgressBar } from 'react-bootstrap'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
+import PostAwardWorkspaceModal from './components/PostAwardWorkspaceModal'
+import { exportRowsToExcel } from './utils/exportReport'
 import { Search, Plus, Edit, Trash2, Eye, Users, Brain, CheckCircle, Star, FileText, Award, TrendingUp } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { showToast } from '../../utils/toast'
 import './VendorPerformance.scss'
+
+const VENDOR_FIELDS = [
+  { name: 'name', label: 'Vendor name', placeholder: 'ABC Construction Ltd.', required: true },
+  {
+    name: 'category',
+    label: 'Category',
+    type: 'select',
+    required: true,
+    options: [
+      { value: 'Construction', label: 'Construction' },
+      { value: 'Technology', label: 'Technology' },
+      { value: 'Logistics', label: 'Logistics' },
+      { value: 'Professional Services', label: 'Professional Services' }
+    ]
+  },
+  { name: 'contractValue', label: 'Contract value (USD)', type: 'number', min: 0, required: true },
+  {
+    name: 'status',
+    label: 'Status',
+    type: 'select',
+    required: true,
+    options: [
+      { value: 'Active', label: 'Active' },
+      { value: 'Under Review', label: 'Under Review' },
+      { value: 'Suspended', label: 'Suspended' }
+    ]
+  }
+]
+
+const createVendorFromForm = (formData, id) => ({
+  id,
+  name: formData.name,
+  category: formData.category,
+  contractValue: Number(formData.contractValue) || 0,
+  performanceScore: 80,
+  onTimeDelivery: 85,
+  qualityRating: 4.0,
+  costEfficiency: 80,
+  status: formData.status,
+  projects: 1,
+  completed: 0,
+  inProgress: 1,
+  lastEvaluation: new Date().toISOString().split('T')[0],
+  nextReview: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+  aiInsights: 'New vendor added — schedule baseline performance review.',
+  aiRecommendation: 'Collect delivery metrics during first project cycle.',
+  riskLevel: 'Medium'
+})
 
 const VendorPerformance = () => {
   const navigate = useNavigate()
   const [vendors, setVendors] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [showFormModal, setShowFormModal] = useState(false)
   const [selectedVendor, setSelectedVendor] = useState(null)
+  const [editingVendor, setEditingVendor] = useState(null)
 
   useEffect(() => {
     setVendors([
@@ -133,7 +186,78 @@ const VendorPerformance = () => {
   const handleDeleteVendor = (vendor) => {
     if (window.confirm(`Are you sure you want to remove vendor "${vendor.name}"?`)) {
       setVendors((prev) => prev.filter((v) => v.id !== vendor.id))
+      showToast.success(`Vendor "${vendor.name}" removed`)
     }
+  }
+
+  const handleAddVendor = () => {
+    setEditingVendor(null)
+    setShowFormModal(true)
+  }
+
+  const handleEditVendor = (vendor) => {
+    setEditingVendor(vendor)
+    setShowFormModal(true)
+  }
+
+  const handleSaveVendor = (formData) => {
+    if (editingVendor) {
+      setVendors((prev) =>
+        prev.map((vendor) =>
+          vendor.id === editingVendor.id
+            ? {
+                ...vendor,
+                name: formData.name,
+                category: formData.category,
+                contractValue: Number(formData.contractValue) || vendor.contractValue,
+                status: formData.status
+              }
+            : vendor
+        )
+      )
+      if (selectedVendor?.id === editingVendor.id) {
+        setSelectedVendor((prev) =>
+          prev
+            ? {
+                ...prev,
+                name: formData.name,
+                category: formData.category,
+                contractValue: Number(formData.contractValue) || prev.contractValue,
+                status: formData.status
+              }
+            : prev
+        )
+      }
+      showToast.success(`Vendor "${formData.name}" updated`)
+    } else {
+      const newVendor = createVendorFromForm(formData, Date.now())
+      setVendors((prev) => [...prev, newVendor])
+      showToast.success(`Vendor "${formData.name}" added`)
+    }
+    setShowFormModal(false)
+    setEditingVendor(null)
+  }
+
+  const handleExportReport = () => {
+    exportRowsToExcel(
+      vendors.map((vendor) => ({
+        Name: vendor.name,
+        Category: vendor.category,
+        'Contract Value': vendor.contractValue,
+        'Performance Score': vendor.performanceScore,
+        'On-Time Delivery': vendor.onTimeDelivery,
+        'Quality Rating': vendor.qualityRating,
+        Status: vendor.status,
+        'Risk Level': vendor.riskLevel
+      })),
+      { sheetName: 'Vendor Performance', fileName: 'vendor_performance_report.xlsx' }
+    )
+  }
+
+  const handleUpdatePerformance = () => {
+    if (!selectedVendor) return
+    setShowModal(false)
+    handleEditVendor(selectedVendor)
   }
 
   const getStatusBadge = (status) => {
@@ -247,11 +371,11 @@ const VendorPerformance = () => {
         tableTitle={`Vendor performance overview (${vendors.length})`}
         tableActions={
           <>
-            <Button variant="primary" className="me-2">
+            <Button variant="primary" className="me-2" onClick={handleAddVendor}>
               <Plus size={16} className="me-2" />
               Add Vendor
             </Button>
-            <Button variant="outline-secondary">
+            <Button variant="outline-secondary" onClick={handleExportReport}>
               <FileText size={16} className="me-2" />
               Export Report
             </Button>
@@ -349,7 +473,7 @@ const VendorPerformance = () => {
                         >
                           <Eye size={14} />
                         </Button>
-                        <Button variant="outline-success" size="sm" className="me-1">
+                        <Button variant="outline-success" size="sm" className="me-1" onClick={() => handleEditVendor(vendor)}>
                           <Edit size={14} />
                         </Button>
                         <Button variant="outline-danger" size="sm" onClick={() => handleDeleteVendor(vendor)}>
@@ -428,12 +552,35 @@ const VendorPerformance = () => {
           <Button variant="secondary" onClick={() => setShowModal(false)}>
             Close
           </Button>
-          <Button variant="primary">
+          <Button variant="primary" onClick={handleUpdatePerformance}>
             <Edit size={16} className="me-2" />
             Update Performance
           </Button>
         </Modal.Footer>
       </Modal>
+
+      <PostAwardWorkspaceModal
+        show={showFormModal}
+        onHide={() => {
+          setShowFormModal(false)
+          setEditingVendor(null)
+        }}
+        title={editingVendor ? 'Edit vendor' : 'Add vendor'}
+        description="Capture supplier details for performance tracking."
+        submitLabel={editingVendor ? 'Save changes' : 'Add vendor'}
+        fields={VENDOR_FIELDS}
+        initialValues={
+          editingVendor
+            ? {
+                name: editingVendor.name,
+                category: editingVendor.category,
+                contractValue: editingVendor.contractValue,
+                status: editingVendor.status
+              }
+            : { status: 'Active' }
+        }
+        onSubmit={handleSaveVendor}
+      />
     </>
   )
 }

@@ -3,7 +3,18 @@ const User = require('../models/User');
 const Company = require('../models/Company');
 const Role = require('../models/Role');
 const { generateAccessToken, generateRefreshToken, setRefreshTokenCookie, clearRefreshTokenCookie } = require('../utils/jwt');
+const { generateInvitationToken, hashInvitationToken } = require('../utils/invitationToken');
+const { sendPasswordResetEmail } = require('../utils/emailService');
 const { ROLES } = require('../config/constants');
+
+const PASSWORD_RESET_EXPIRY_MS = 24 * 60 * 60 * 1000;
+
+function getFrontendBaseUrl() {
+  return (process.env.FRONTEND_URL || process.env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
+}
+
+const GENERIC_RESET_MESSAGE =
+  'If an account exists for that email, password reset instructions have been sent.';
 
 // Register supplier/respondent org + user (participant onboarding)
 const registerRespondent = async (req, res) => {
@@ -448,6 +459,107 @@ const updateProfile = async (req, res) => {
   }
 };
 
+// Request password reset email
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email || !String(email).includes('@')) {
+      return res.status(400).json({
+        error: 'Validation error',
+        message: 'A valid email address is required'
+      });
+    }
+
+    const normalizedEmail = String(email).toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail, isActive: true })
+      .select('+passwordResetTokenHash +passwordResetExpires');
+
+    if (user) {
+      const rawToken = generateInvitationToken();
+      user.passwordResetTokenHash = hashInvitationToken(rawToken);
+      user.passwordResetExpires = new Date(Date.now() + PASSWORD_RESET_EXPIRY_MS);
+      await user.save({ validateBeforeSave: false });
+
+      const resetUrl = `${getFrontendBaseUrl()}/reset-password?token=${encodeURIComponent(rawToken)}`;
+
+      try {
+        await sendPasswordResetEmail({
+          to: user.email,
+          name: user.name,
+          resetUrl
+        });
+      } catch (emailError) {
+        console.error('Password reset email error:', emailError);
+        user.passwordResetTokenHash = undefined;
+        user.passwordResetExpires = undefined;
+        await user.save({ validateBeforeSave: false });
+
+        return res.status(503).json({
+          error: 'Email delivery failed',
+          message: 'Unable to send password reset email. Please try again later.'
+        });
+      }
+    }
+
+    res.json({ message: GENERIC_RESET_MESSAGE });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({
+      error: 'Password reset request failed',
+      message: 'Internal server error while processing password reset request'
+    });
+  }
+};
+
+// Reset password with token
+const resetPassword = async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({
+        error: 'Validation error',
+        message: 'Reset token and new password are required'
+      });
+    }
+
+    if (String(password).length < 6) {
+      return res.status(400).json({
+        error: 'Validation error',
+        message: 'Password must be at least 6 characters'
+      });
+    }
+
+    const tokenHash = hashInvitationToken(String(token).trim());
+    const user = await User.findOne({
+      passwordResetTokenHash: tokenHash,
+      passwordResetExpires: { $gt: new Date() },
+      isActive: true
+    }).select('+passwordResetTokenHash +passwordResetExpires');
+
+    if (!user) {
+      return res.status(400).json({
+        error: 'Invalid or expired token',
+        message: 'This password reset link is invalid or has expired. Please request a new one.'
+      });
+    }
+
+    user.password = password;
+    user.passwordResetTokenHash = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save();
+
+    res.json({ message: 'Password reset successfully. You can now sign in with your new password.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({
+      error: 'Password reset failed',
+      message: 'Internal server error while resetting password'
+    });
+  }
+};
+
 module.exports = {
   register,
   registerRespondent,
@@ -455,5 +567,7 @@ module.exports = {
   refresh,
   logout,
   getProfile,
-  updateProfile
+  updateProfile,
+  forgotPassword,
+  resetPassword
 };

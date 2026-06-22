@@ -5,163 +5,198 @@ import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
+import AdminWorkspaceModal from '../../components/admin/AdminWorkspaceModal'
+import { showToast } from '../../utils/toast'
+import { exportRowsToExcel } from '../../utils/exportReport'
+import { loadAdminConfig, saveAdminConfig } from '../../utils/adminConfigStorage'
 import './SystemSettings.scss'
+
+const SETTINGS_STORAGE_KEY = 'tender360_system_settings'
+
+const INITIAL_SETTINGS = [
+  {
+    id: 1,
+    name: 'System Timeout',
+    description: 'Automatic session timeout duration in minutes',
+    category: 'Security',
+    value: '30',
+    unit: 'minutes',
+    type: 'Number',
+    status: 'Active',
+    lastModified: '2024-02-10',
+    modifiedBy: 'System Admin',
+    aiRecommendation: 'Optimal timeout for security and user experience',
+    aiConfidence: 92,
+    riskLevel: 'Low',
+    priority: 'High',
+    validation: 'Must be between 15-120 minutes',
+    impact: 'User Experience'
+  },
+  {
+    id: 2,
+    name: 'File Upload Limit',
+    description: 'Maximum file size allowed for uploads',
+    category: 'Storage',
+    value: '100',
+    unit: 'MB',
+    type: 'Number',
+    status: 'Active',
+    lastModified: '2024-02-08',
+    modifiedBy: 'Storage Admin',
+    aiRecommendation: 'Balanced limit for performance and usability',
+    aiConfidence: 88,
+    riskLevel: 'Medium',
+    priority: 'Medium',
+    validation: 'Must be between 10-500 MB',
+    impact: 'Performance'
+  },
+  {
+    id: 3,
+    name: 'Backup Frequency',
+    description: 'How often system backups are performed',
+    category: 'Data Management',
+    value: 'Daily',
+    unit: '',
+    type: 'Select',
+    status: 'Active',
+    lastModified: '2024-02-05',
+    modifiedBy: 'Data Admin',
+    aiRecommendation: 'Daily backups ensure data protection',
+    aiConfidence: 95,
+    riskLevel: 'Low',
+    priority: 'Critical',
+    validation: 'Must be Daily, Weekly, or Monthly',
+    impact: 'Data Protection'
+  },
+  {
+    id: 4,
+    name: 'Email Notifications',
+    description: 'Enable or disable email notifications',
+    category: 'Communication',
+    value: 'Enabled',
+    unit: '',
+    type: 'Boolean',
+    status: 'Active',
+    lastModified: '2024-02-01',
+    modifiedBy: 'Communication Admin',
+    aiRecommendation: 'Notifications improve user engagement',
+    aiConfidence: 85,
+    riskLevel: 'Low',
+    priority: 'Medium',
+    validation: 'Must be Enabled or Disabled',
+    impact: 'User Engagement'
+  },
+  {
+    id: 5,
+    name: 'API Rate Limit',
+    description: 'Maximum API requests per minute',
+    category: 'Performance',
+    value: '1000',
+    unit: 'requests/min',
+    type: 'Number',
+    status: 'Active',
+    lastModified: '2024-01-28',
+    modifiedBy: 'API Admin',
+    aiRecommendation: 'Optimal rate limit for system stability',
+    aiConfidence: 90,
+    riskLevel: 'Medium',
+    priority: 'High',
+    validation: 'Must be between 100-5000 requests/min',
+    impact: 'System Performance'
+  },
+  {
+    id: 6,
+    name: 'Database Connection Pool',
+    description: 'Maximum database connections',
+    category: 'Database',
+    value: '50',
+    unit: 'connections',
+    type: 'Number',
+    status: 'Active',
+    lastModified: '2024-01-25',
+    modifiedBy: 'Database Admin',
+    aiRecommendation: 'Balanced pool size for optimal performance',
+    aiConfidence: 87,
+    riskLevel: 'High',
+    priority: 'Critical',
+    validation: 'Must be between 10-100 connections',
+    impact: 'Database Performance'
+  },
+  {
+    id: 7,
+    name: 'Log Retention Period',
+    description: 'How long to keep system logs',
+    category: 'Logging',
+    value: '90',
+    unit: 'days',
+    type: 'Number',
+    status: 'Active',
+    lastModified: '2024-01-20',
+    modifiedBy: 'System Admin',
+    aiRecommendation: '90 days provides good audit trail',
+    aiConfidence: 82,
+    riskLevel: 'Low',
+    priority: 'Medium',
+    validation: 'Must be between 30-365 days',
+    impact: 'Storage Management'
+  },
+  {
+    id: 8,
+    name: 'Cache Expiration',
+    description: 'How long to cache data',
+    category: 'Performance',
+    value: '15',
+    unit: 'minutes',
+    type: 'Number',
+    status: 'Inactive',
+    lastModified: '2024-01-15',
+    modifiedBy: 'Performance Admin',
+    aiRecommendation: '15 minutes balances performance and freshness',
+    aiConfidence: 78,
+    riskLevel: 'Medium',
+    priority: 'Medium',
+    validation: 'Must be between 5-60 minutes',
+    impact: 'Data Freshness'
+  }
+]
+
+const SETTING_DEFAULT_VALUES = {
+  'System Timeout': '30',
+  'File Upload Limit': '100',
+  'Backup Frequency': 'Daily',
+  'Email Notifications': 'Enabled',
+  'API Rate Limit': '1000',
+  'Database Connection Pool': '50',
+  'Log Retention Period': '90',
+  'Cache Expiration': '15'
+}
+
+const SETTING_FORM_FIELDS = [
+  { name: 'value', label: 'Value', required: true },
+  {
+    name: 'status',
+    label: 'Status',
+    type: 'select',
+    required: true,
+    options: [
+      { value: 'Active', label: 'Active' },
+      { value: 'Inactive', label: 'Inactive' }
+    ]
+  }
+]
 
 const SystemSettings = () => {
   const navigate = useNavigate()
   const [settings, setSettings] = useState([])
-  const [searchTerm, setSearchTerm] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [showFormModal, setShowFormModal] = useState(false)
   const [selectedSetting, setSelectedSetting] = useState(null)
+  const [editingItem, setEditingItem] = useState(null)
   const [stats, setStats] = useState({})
 
   useEffect(() => {
-    setSettings([
-      {
-        id: 1,
-        name: 'System Timeout',
-        description: 'Automatic session timeout duration in minutes',
-        category: 'Security',
-        value: '30',
-        unit: 'minutes',
-        type: 'Number',
-        status: 'Active',
-        lastModified: '2024-02-10',
-        modifiedBy: 'System Admin',
-        aiRecommendation: 'Optimal timeout for security and user experience',
-        aiConfidence: 92,
-        riskLevel: 'Low',
-        priority: 'High',
-        validation: 'Must be between 15-120 minutes',
-        impact: 'User Experience'
-      },
-      {
-        id: 2,
-        name: 'File Upload Limit',
-        description: 'Maximum file size allowed for uploads',
-        category: 'Storage',
-        value: '100',
-        unit: 'MB',
-        type: 'Number',
-        status: 'Active',
-        lastModified: '2024-02-08',
-        modifiedBy: 'Storage Admin',
-        aiRecommendation: 'Balanced limit for performance and usability',
-        aiConfidence: 88,
-        riskLevel: 'Medium',
-        priority: 'Medium',
-        validation: 'Must be between 10-500 MB',
-        impact: 'Performance'
-      },
-      {
-        id: 3,
-        name: 'Backup Frequency',
-        description: 'How often system backups are performed',
-        category: 'Data Management',
-        value: 'Daily',
-        unit: '',
-        type: 'Select',
-        status: 'Active',
-        lastModified: '2024-02-05',
-        modifiedBy: 'Data Admin',
-        aiRecommendation: 'Daily backups ensure data protection',
-        aiConfidence: 95,
-        riskLevel: 'Low',
-        priority: 'Critical',
-        validation: 'Must be Daily, Weekly, or Monthly',
-        impact: 'Data Protection'
-      },
-      {
-        id: 4,
-        name: 'Email Notifications',
-        description: 'Enable or disable email notifications',
-        category: 'Communication',
-        value: 'Enabled',
-        unit: '',
-        type: 'Boolean',
-        status: 'Active',
-        lastModified: '2024-02-01',
-        modifiedBy: 'Communication Admin',
-        aiRecommendation: 'Notifications improve user engagement',
-        aiConfidence: 85,
-        riskLevel: 'Low',
-        priority: 'Medium',
-        validation: 'Must be Enabled or Disabled',
-        impact: 'User Engagement'
-      },
-      {
-        id: 5,
-        name: 'API Rate Limit',
-        description: 'Maximum API requests per minute',
-        category: 'Performance',
-        value: '1000',
-        unit: 'requests/min',
-        type: 'Number',
-        status: 'Active',
-        lastModified: '2024-01-28',
-        modifiedBy: 'API Admin',
-        aiRecommendation: 'Optimal rate limit for system stability',
-        aiConfidence: 90,
-        riskLevel: 'Medium',
-        priority: 'High',
-        validation: 'Must be between 100-5000 requests/min',
-        impact: 'System Performance'
-      },
-      {
-        id: 6,
-        name: 'Database Connection Pool',
-        description: 'Maximum database connections',
-        category: 'Database',
-        value: '50',
-        unit: 'connections',
-        type: 'Number',
-        status: 'Active',
-        lastModified: '2024-01-25',
-        modifiedBy: 'Database Admin',
-        aiRecommendation: 'Balanced pool size for optimal performance',
-        aiConfidence: 87,
-        riskLevel: 'High',
-        priority: 'Critical',
-        validation: 'Must be between 10-100 connections',
-        impact: 'Database Performance'
-      },
-      {
-        id: 7,
-        name: 'Log Retention Period',
-        description: 'How long to keep system logs',
-        category: 'Logging',
-        value: '90',
-        unit: 'days',
-        type: 'Number',
-        status: 'Active',
-        lastModified: '2024-01-20',
-        modifiedBy: 'System Admin',
-        aiRecommendation: '90 days provides good audit trail',
-        aiConfidence: 82,
-        riskLevel: 'Low',
-        priority: 'Medium',
-        validation: 'Must be between 30-365 days',
-        impact: 'Storage Management'
-      },
-      {
-        id: 8,
-        name: 'Cache Expiration',
-        description: 'How long to cache data',
-        category: 'Performance',
-        value: '15',
-        unit: 'minutes',
-        type: 'Number',
-        status: 'Inactive',
-        lastModified: '2024-01-15',
-        modifiedBy: 'Performance Admin',
-        aiRecommendation: '15 minutes balances performance and freshness',
-        aiConfidence: 78,
-        riskLevel: 'Medium',
-        priority: 'Medium',
-        validation: 'Must be between 5-60 minutes',
-        impact: 'Data Freshness'
-      }
-    ])
+    const saved = loadAdminConfig(SETTINGS_STORAGE_KEY, null)
+    setSettings(saved ? saved : INITIAL_SETTINGS.map((s) => ({ ...s })))
 
     setStats({
       totalSettings: 8,
@@ -180,17 +215,79 @@ const SystemSettings = () => {
   }
 
   const handleEditSetting = (setting) => {
-    console.log('Edit setting:', setting)
-    // Navigate to edit setting or open edit modal
+    setEditingItem(setting)
+    setShowFormModal(true)
+  }
+
+  const handleFormSubmit = (formData) => {
+    if (!editingItem) return
+
+    setSettings((prev) =>
+      prev.map((s) =>
+        s.id === editingItem.id
+          ? {
+              ...s,
+              value: formData.value,
+              status: formData.status,
+              lastModified: new Date().toISOString().split('T')[0]
+            }
+          : s
+      )
+    )
+    showToast.success(`${editingItem.name} updated`)
+    setShowFormModal(false)
+    setEditingItem(null)
   }
 
   const handleDeleteSetting = (setting) => {
     if (window.confirm(`Are you sure you want to delete setting "${setting.name}"?`)) {
-      setSettings(prev => prev.filter(s => s.id !== setting.id))
+      setSettings((prev) => prev.filter((s) => s.id !== setting.id))
     }
   }
 
-  // Column definitions for DataTable
+  const handleSaveSettings = () => {
+    saveAdminConfig(SETTINGS_STORAGE_KEY, settings)
+    showToast.success('All system settings saved')
+  }
+
+  const handleResetSettings = () => {
+    setSettings(INITIAL_SETTINGS.map((s) => ({ ...s })))
+    showToast.info('All settings reset to defaults')
+  }
+
+  const handleExportConfig = () => {
+    exportRowsToExcel(
+      settings.map(({ id, name, category, value, unit, type, status, priority, riskLevel, lastModified, modifiedBy }) => ({
+        id,
+        name,
+        category,
+        value,
+        unit,
+        type,
+        status,
+        priority,
+        riskLevel,
+        lastModified,
+        modifiedBy
+      })),
+      { sheetName: 'System Settings', fileName: 'system_settings_config.xlsx' }
+    )
+  }
+
+  const handleResetSingleSetting = (row) => {
+    const defaultValue = SETTING_DEFAULT_VALUES[row.name]
+    if (!defaultValue) return
+
+    setSettings((prev) =>
+      prev.map((s) =>
+        s.id === row.id
+          ? { ...s, value: defaultValue, lastModified: new Date().toISOString().split('T')[0] }
+          : s
+      )
+    )
+    showToast.success(`"${row.name}" reset to default`)
+  }
+
   const columns = [
     {
       key: 'name',
@@ -210,9 +307,7 @@ const SystemSettings = () => {
       key: 'category',
       label: 'Category',
       width: '12%',
-      render: (value) => (
-        <Badge bg="info">{value}</Badge>
-      )
+      render: (value) => <Badge bg="info">{value}</Badge>
     },
     {
       key: 'value',
@@ -250,12 +345,12 @@ const SystemSettings = () => {
       label: 'Modified',
       width: '12%',
       render: (value) => {
-        const date = new Date(value);
+        const date = new Date(value)
         return date.toLocaleDateString('en-US', {
           month: '2-digit',
           day: '2-digit',
           year: 'numeric'
-        });
+        })
       }
     },
     {
@@ -265,57 +360,33 @@ const SystemSettings = () => {
     }
   ]
 
-  const handleSaveSettings = () => {
-    if (window.confirm('Are you sure you want to save all system settings?')) {
-      // Implementation for saving settings
-      console.log('Saving system settings...')
-    }
-  }
-
-  const handleResetSettings = () => {
-    if (window.confirm('Are you sure you want to reset all settings to default values?')) {
-      // Implementation for resetting settings
-      console.log('Resetting system settings...')
-    }
-  }
-
   const getStatusBadge = (status) => {
     const variants = {
-      'Active': 'success',
-      'Inactive': 'secondary',
-      'Pending': 'warning',
-      'Error': 'danger'
+      Active: 'success',
+      Inactive: 'secondary',
+      Pending: 'warning',
+      Error: 'danger'
     }
     return <Badge bg={variants[status] || 'secondary'}>{status}</Badge>
   }
 
   const getRiskBadge = (risk) => {
     const variants = {
-      'Low': 'success',
-      'Medium': 'warning',
-      'High': 'danger'
+      Low: 'success',
+      Medium: 'warning',
+      High: 'danger'
     }
     return <Badge bg={variants[risk] || 'secondary'}>{risk}</Badge>
   }
 
   const getPriorityBadge = (priority) => {
     const variants = {
-      'Critical': 'danger',
-      'High': 'warning',
-      'Medium': 'primary',
-      'Low': 'secondary'
+      Critical: 'danger',
+      High: 'warning',
+      Medium: 'primary',
+      Low: 'secondary'
     }
     return <Badge bg={variants[priority] || 'secondary'}>{priority}</Badge>
-  }
-
-  const getCategoryIcon = (category) => {
-    const icons = {
-      'Security': Shield,
-      'Storage': Settings,
-      'Data Management': CheckCircle,
-      'Communication': AlertTriangle
-    }
-    return icons[category] || Settings
   }
 
   const insightItems = useMemo(() => {
@@ -426,7 +497,7 @@ const SystemSettings = () => {
               <RefreshCw size={16} className="me-2" />
               Reset to Default
             </Button>
-            <Button variant="outline-secondary">
+            <Button variant="outline-secondary" onClick={handleExportConfig}>
               <Settings size={16} className="me-2" />
               Export Config
             </Button>
@@ -451,9 +522,7 @@ const SystemSettings = () => {
             {
               type: 'custom',
               label: 'Reset to Default',
-              onClick: (row) => {
-                console.log('Reset setting to default:', row.name)
-              }
+              onClick: (row) => handleResetSingleSetting(row)
             }
           ]}
           searchPlaceholder="Search settings..."
@@ -462,75 +531,122 @@ const SystemSettings = () => {
         />
       </ExecutiveCommandCenter>
 
-        <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
-          <Modal.Header closeButton>
-            <Modal.Title>
-              <Settings size={20} className="me-2" />
-              Setting Details - {selectedSetting?.name}
-            </Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            {selectedSetting && (
-              <div className="setting-details">
-                <Row>
-                  <Col md={6}>
-                    <h6>Basic Information</h6>
-                    <p><strong>Name:</strong> {selectedSetting.name}</p>
-                    <p><strong>Category:</strong> {selectedSetting.category}</p>
-                    <p><strong>Type:</strong> {selectedSetting.type}</p>
-                    <p><strong>Status:</strong> {selectedSetting.status}</p>
-                    <p><strong>Priority:</strong> {selectedSetting.priority}</p>
-                  </Col>
-                  <Col md={6}>
-                    <h6>Current Configuration</h6>
-                    <p><strong>Value:</strong> {selectedSetting.value} {selectedSetting.unit}</p>
-                    <p><strong>Validation:</strong> {selectedSetting.validation}</p>
-                    <p><strong>Impact:</strong> {selectedSetting.impact}</p>
-                    <p><strong>Risk Level:</strong> {selectedSetting.riskLevel}</p>
-                    <p><strong>AI Confidence:</strong> {selectedSetting.aiConfidence}%</p>
-                  </Col>
-                </Row>
-                <hr />
-                <Row>
-                  <Col>
-                    <h6>Description</h6>
-                    <p>{selectedSetting.description}</p>
-                  </Col>
-                </Row>
-                <hr />
-                <Row>
-                  <Col md={6}>
-                    <h6>Modification History</h6>
-                    <div className="history-info">
-                      <p><strong>Last Modified:</strong> {selectedSetting.lastModified}</p>
-                      <p><strong>Modified By:</strong> {selectedSetting.modifiedBy}</p>
-                    </div>
-                  </Col>
-                  <Col md={6}>
-                    <h6>AI Assessment & Recommendation</h6>
-                    <Alert variant="info">
-                      <Brain size={16} className="me-2" />
-                      <strong>Recommendation:</strong> {selectedSetting.aiRecommendation}
-                    </Alert>
-                    <Alert variant="success">
-                      <CheckCircle size={16} className="me-2" />
-                      <strong>Confidence Level:</strong> {selectedSetting.aiConfidence}% based on system performance analysis and best practices
-                    </Alert>
-                  </Col>
-                </Row>
-              </div>
-            )}
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowModal(false)}>
-              Close
-            </Button>
-            <Button variant="primary">
-              <Edit size={16} className="me-2" />
-              Edit Setting
-            </Button>
-          </Modal.Footer>
-        </Modal>
+      <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <Settings size={20} className="me-2" />
+            Setting Details - {selectedSetting?.name}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedSetting && (
+            <div className="setting-details">
+              <Row>
+                <Col md={6}>
+                  <h6>Basic Information</h6>
+                  <p>
+                    <strong>Name:</strong> {selectedSetting.name}
+                  </p>
+                  <p>
+                    <strong>Category:</strong> {selectedSetting.category}
+                  </p>
+                  <p>
+                    <strong>Type:</strong> {selectedSetting.type}
+                  </p>
+                  <p>
+                    <strong>Status:</strong> {selectedSetting.status}
+                  </p>
+                  <p>
+                    <strong>Priority:</strong> {selectedSetting.priority}
+                  </p>
+                </Col>
+                <Col md={6}>
+                  <h6>Current Configuration</h6>
+                  <p>
+                    <strong>Value:</strong> {selectedSetting.value} {selectedSetting.unit}
+                  </p>
+                  <p>
+                    <strong>Validation:</strong> {selectedSetting.validation}
+                  </p>
+                  <p>
+                    <strong>Impact:</strong> {selectedSetting.impact}
+                  </p>
+                  <p>
+                    <strong>Risk Level:</strong> {selectedSetting.riskLevel}
+                  </p>
+                  <p>
+                    <strong>AI Confidence:</strong> {selectedSetting.aiConfidence}%
+                  </p>
+                </Col>
+              </Row>
+              <hr />
+              <Row>
+                <Col>
+                  <h6>Description</h6>
+                  <p>{selectedSetting.description}</p>
+                </Col>
+              </Row>
+              <hr />
+              <Row>
+                <Col md={6}>
+                  <h6>Modification History</h6>
+                  <div className="history-info">
+                    <p>
+                      <strong>Last Modified:</strong> {selectedSetting.lastModified}
+                    </p>
+                    <p>
+                      <strong>Modified By:</strong> {selectedSetting.modifiedBy}
+                    </p>
+                  </div>
+                </Col>
+                <Col md={6}>
+                  <h6>AI Assessment & Recommendation</h6>
+                  <Alert variant="info">
+                    <Brain size={16} className="me-2" />
+                    <strong>Recommendation:</strong> {selectedSetting.aiRecommendation}
+                  </Alert>
+                  <Alert variant="success">
+                    <CheckCircle size={16} className="me-2" />
+                    <strong>Confidence Level:</strong> {selectedSetting.aiConfidence}% based on system
+                    performance analysis and best practices
+                  </Alert>
+                </Col>
+              </Row>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowModal(false)}>
+            Close
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => {
+              setShowModal(false)
+              handleEditSetting(selectedSetting)
+            }}
+          >
+            <Edit size={16} className="me-2" />
+            Edit Setting
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <AdminWorkspaceModal
+        show={showFormModal}
+        onHide={() => {
+          setShowFormModal(false)
+          setEditingItem(null)
+        }}
+        title={`Edit Setting — ${editingItem?.name ?? ''}`}
+        description={editingItem?.description}
+        submitLabel="Save changes"
+        fields={SETTING_FORM_FIELDS}
+        initialValues={
+          editingItem ? { value: editingItem.value, status: editingItem.status } : {}
+        }
+        onSubmit={handleFormSubmit}
+      />
     </>
   )
 }

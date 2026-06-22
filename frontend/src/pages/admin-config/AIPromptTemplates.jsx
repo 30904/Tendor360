@@ -4,15 +4,35 @@ import { Search, Plus, Edit, Trash2, Eye, Brain, CheckCircle, AlertTriangle } fr
 import { useNavigate } from 'react-router-dom'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
+import AdminWorkspaceModal from '../../components/admin/AdminWorkspaceModal'
+import { showToast } from '../../utils/toast'
 import './AIPromptTemplates.scss'
+
+const TEMPLATE_FORM_FIELDS = [
+  { name: 'name', label: 'Name', required: true },
+  {
+    name: 'category',
+    label: 'Category',
+    type: 'select',
+    required: true,
+    options: [
+      { value: 'Analysis', label: 'Analysis' },
+      { value: 'Risk Management', label: 'Risk Management' },
+      { value: 'Compliance', label: 'Compliance' }
+    ]
+  },
+  { name: 'description', label: 'Description', type: 'textarea', required: true },
+  { name: 'prompt', label: 'Prompt', type: 'textarea', rows: 5, required: true }
+]
 
 const AIPromptTemplates = () => {
   const navigate = useNavigate()
   const [templates, setTemplates] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [showFormModal, setShowFormModal] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState(null)
-  const [stats, setStats] = useState({})
+  const [editingItem, setEditingItem] = useState(null)
 
   useEffect(() => {
     setTemplates([
@@ -62,16 +82,6 @@ const AIPromptTemplates = () => {
         responseFormat: 'Checklist'
       }
     ])
-
-    setStats({
-      totalTemplates: 3,
-      active: 3,
-      categories: 3,
-      aiConfidence: 91,
-      totalUsage: 590,
-      avgUsage: 197,
-      highPriority: 2
-    })
   }, [])
 
   const handleViewTemplate = (template) => {
@@ -80,11 +90,83 @@ const AIPromptTemplates = () => {
   }
 
   const handleCreateTemplate = () => {
-    if (window.confirm('Are you sure you want to create a new AI prompt template?')) {
-      // Implementation for creating new template
-      console.log('Creating new AI prompt template...')
-    }
+    setEditingItem(null)
+    setShowFormModal(true)
   }
+
+  const handleEditTemplate = (template) => {
+    setEditingItem(template)
+    setShowFormModal(true)
+  }
+
+  const handleDeleteTemplate = (template) => {
+    if (!window.confirm(`Delete template "${template.name}"?`)) return
+    setTemplates((prev) => prev.filter((entry) => entry.id !== template.id))
+    showToast.success(`"${template.name}" deleted`)
+  }
+
+  const closeFormModal = () => {
+    setShowFormModal(false)
+    setEditingItem(null)
+  }
+
+  const handleFormSubmit = (formData) => {
+    if (editingItem) {
+      setTemplates((prev) =>
+        prev.map((entry) =>
+          entry.id === editingItem.id
+            ? {
+                ...entry,
+                name: formData.name,
+                category: formData.category,
+                description: formData.description,
+                prompt: formData.prompt
+              }
+            : entry
+        )
+      )
+      showToast.success(`Template "${formData.name}" updated`)
+      closeFormModal()
+      return
+    }
+
+    const newTemplate = {
+      id: Date.now(),
+      name: formData.name,
+      description: formData.description,
+      category: formData.category,
+      status: 'Active',
+      lastUsed: 'Never',
+      usage: 0,
+      aiOptimization: 'New template configuration',
+      aiConfidence: 85,
+      priority: 'Medium',
+      prompt: formData.prompt,
+      variables: [],
+      responseFormat: 'JSON'
+    }
+    setTemplates((prev) => [...prev, newTemplate])
+    closeFormModal()
+    showToast.success(`Template "${formData.name}" created`)
+  }
+
+  const stats = useMemo(() => {
+    const totalUsage = templates.reduce((sum, t) => sum + (t.usage || 0), 0)
+    const categories = new Set(templates.map((t) => t.category)).size
+    const highPriority = templates.filter((t) => t.priority === 'High').length
+    const aiConfidence = templates.length
+      ? Math.round(templates.reduce((sum, t) => sum + (t.aiConfidence || 0), 0) / templates.length)
+      : 0
+    return {
+      totalTemplates: templates.length,
+      active: templates.filter((t) => t.status === 'Active').length,
+      categories,
+      aiConfidence,
+      totalUsage,
+      avgUsage: templates.length ? Math.round(totalUsage / templates.length) : 0,
+      highPriority
+    }
+  }, [templates])
 
   const getStatusBadge = (status) => {
     const variants = {
@@ -216,7 +298,7 @@ const AIPromptTemplates = () => {
               <Plus size={16} className="me-2" />
               New Template
             </Button>
-            <Button variant="outline-secondary">
+            <Button variant="outline-secondary" onClick={() => navigate('/admin-config/intelligence-platform')}>
               <Brain size={16} className="me-2" />
               AI Settings
             </Button>
@@ -299,17 +381,10 @@ const AIPromptTemplates = () => {
                         >
                           <Eye size={14} />
                         </Button>
-                        <Button
-                          variant="outline-warning"
-                          size="sm"
-                          className="me-1"
-                        >
+                        <Button variant="outline-warning" size="sm" className="me-1" onClick={() => handleEditTemplate(template)}>
                           <Edit size={14} />
                         </Button>
-                        <Button
-                          variant="outline-danger"
-                          size="sm"
-                        >
+                        <Button variant="outline-danger" size="sm" onClick={() => handleDeleteTemplate(template)}>
                           <Trash2 size={14} />
                         </Button>
                       </div>
@@ -399,12 +474,32 @@ const AIPromptTemplates = () => {
           <Button variant="secondary" onClick={() => setShowModal(false)}>
             Close
           </Button>
-          <Button variant="primary">
+          <Button variant="primary" onClick={() => { setShowModal(false); handleEditTemplate(selectedTemplate) }}>
             <Edit size={16} className="me-2" />
             Edit Template
           </Button>
         </Modal.Footer>
       </Modal>
+
+      <AdminWorkspaceModal
+        show={showFormModal}
+        onHide={closeFormModal}
+        title={editingItem ? `Edit Template — ${editingItem.name}` : 'New AI Prompt Template'}
+        description={editingItem ? 'Update prompt template content.' : 'Author a reusable prompt for AI-assisted workflows.'}
+        submitLabel={editingItem ? 'Save changes' : 'Create Template'}
+        fields={TEMPLATE_FORM_FIELDS}
+        initialValues={
+          editingItem
+            ? {
+                name: editingItem.name,
+                category: editingItem.category,
+                description: editingItem.description,
+                prompt: editingItem.prompt
+              }
+            : {}
+        }
+        onSubmit={handleFormSubmit}
+      />
     </>
   )
 }

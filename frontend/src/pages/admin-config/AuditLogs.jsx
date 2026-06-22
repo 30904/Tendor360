@@ -1,19 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Row, Col, Button, Badge, Modal, Alert } from 'react-bootstrap'
+import { Row, Col, Button, Badge, Modal, Alert, Form } from 'react-bootstrap'
 import { Download, Filter, Calendar, Shield, AlertTriangle, CheckCircle, Clock } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
+import { exportRowsToExcel } from '../../utils/exportReport'
 import './AuditLogs.scss'
 
 const AuditLogs = () => {
   const navigate = useNavigate()
   const [auditLogs, setAuditLogs] = useState([])
-  const [searchTerm, setSearchTerm] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [selectedLog, setSelectedLog] = useState(null)
   const [stats, setStats] = useState({})
+  const [severityFilter, setSeverityFilter] = useState('all')
+  const [showFilters, setShowFilters] = useState(false)
 
   useEffect(() => {
     setAuditLogs([
@@ -147,15 +149,32 @@ const AuditLogs = () => {
     setShowModal(true)
   }
 
-  const handleEditLog = (log) => {
-    console.log('Edit log:', log)
-    // Navigate to edit log or open edit modal
-  }
-
   const handleDeleteLog = (log) => {
     if (window.confirm(`Are you sure you want to delete this audit log entry?`)) {
       setAuditLogs(prev => prev.filter(l => l.id !== log.id))
     }
+  }
+
+  const filteredLogs = useMemo(() => {
+    if (severityFilter === 'all') return auditLogs
+    return auditLogs.filter((log) => log.severity === severityFilter)
+  }, [auditLogs, severityFilter])
+
+  const handleExportAll = () => {
+    exportRowsToExcel(
+      filteredLogs.map(({ action, user, userRole, timestamp, status, severity, module }) => ({
+        action, user, userRole, timestamp, status, severity, module
+      })),
+      { sheetName: 'Audit Logs', fileName: 'audit_logs_export.xlsx' }
+    )
+  }
+
+  const handleExportLog = (log) => {
+    if (!log) return
+    exportRowsToExcel([log], {
+      sheetName: 'Audit Log',
+      fileName: `audit_log_${log.id}.xlsx`
+    })
   }
 
   // Column definitions for DataTable
@@ -347,19 +366,32 @@ const AuditLogs = () => {
         tableTitle="Audit logs"
         tableActions={
           <>
-            <Button variant="outline-primary" className="me-2">
+            <Button variant="outline-primary" className="me-2" onClick={() => setShowFilters((prev) => !prev)}>
               <Filter size={16} className="me-2" />
-              Filter
+              {showFilters ? 'Hide Filters' : 'Filter'}
             </Button>
-            <Button variant="outline-secondary">
+            <Button variant="outline-secondary" onClick={handleExportAll}>
               <Download size={16} className="me-2" />
               Export
             </Button>
           </>
         }
       >
+        {showFilters ? (
+          <Row className="mb-3">
+            <Col md={4}>
+              <Form.Select value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value)}>
+                <option value="all">All severities</option>
+                <option value="Info">Info</option>
+                <option value="Warning">Warning</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+              </Form.Select>
+            </Col>
+          </Row>
+        ) : null}
         <DataTable
-          data={auditLogs}
+          data={filteredLogs}
           columns={columns}
           title="Audit Logs"
           searchable={true}
@@ -370,15 +402,12 @@ const AuditLogs = () => {
           showActions={true}
           showCheckboxes={false}
           onView={handleViewLog}
-          onEdit={handleEditLog}
           onDelete={handleDeleteLog}
           customActions={[
             {
               type: 'custom',
               label: 'Export Details',
-              onClick: (row) => {
-                console.log('Export log details:', row);
-              }
+              onClick: (row) => handleExportLog(row)
             }
           ]}
           searchPlaceholder="Search audit logs..."
@@ -437,7 +466,7 @@ const AuditLogs = () => {
             <Button variant="secondary" onClick={() => setShowModal(false)}>
               Close
             </Button>
-            <Button variant="primary">
+            <Button variant="primary" onClick={() => handleExportLog(selectedLog)}>
               <Download size={16} className="me-2" />
               Export Log
             </Button>

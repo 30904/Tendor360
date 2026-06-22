@@ -4,15 +4,37 @@ import { Search, Plus, Edit, Trash2, Eye, Building, Globe, Brain, CheckCircle, M
 import { useNavigate } from 'react-router-dom'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
+import AdminWorkspaceModal from '../../components/admin/AdminWorkspaceModal'
+import { showToast } from '../../utils/toast'
+import { exportRowsToExcel } from '../../utils/exportReport'
 import './IssuerMaster.scss'
+
+const ISSUER_FORM_FIELDS = [
+  { name: 'name', label: 'Name', required: true },
+  { name: 'code', label: 'Code', required: true },
+  {
+    name: 'type',
+    label: 'Type',
+    type: 'select',
+    required: true,
+    options: [
+      { value: 'Government', label: 'Government' },
+      { value: 'Private', label: 'Private' },
+      { value: 'NGO', label: 'NGO' }
+    ]
+  },
+  { name: 'country', label: 'Country', required: true },
+  { name: 'email', label: 'Email', type: 'email', required: true }
+]
 
 const IssuerMaster = () => {
   const navigate = useNavigate()
   const [issuers, setIssuers] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [showFormModal, setShowFormModal] = useState(false)
   const [selectedIssuer, setSelectedIssuer] = useState(null)
-  const [stats, setStats] = useState({})
+  const [editingItem, setEditingItem] = useState(null)
 
   useEffect(() => {
     setIssuers([
@@ -74,16 +96,6 @@ const IssuerMaster = () => {
         lastTender: '2024-02-03'
       }
     ])
-
-    setStats({
-      totalIssuers: 3,
-      active: 3,
-      types: 1,
-      aiConfidence: 88,
-      totalTenders: 105,
-      avgTenderValue: 19333333,
-      countries: 1
-    })
   }, [])
 
   const handleViewIssuer = (issuer) => {
@@ -92,10 +104,102 @@ const IssuerMaster = () => {
   }
 
   const handleCreateIssuer = () => {
-    if (window.confirm('Are you sure you want to create a new issuer?')) {
-      console.log('Creating new issuer...')
-    }
+    setEditingItem(null)
+    setShowFormModal(true)
   }
+
+  const handleEditIssuer = (issuer) => {
+    setEditingItem(issuer)
+    setShowFormModal(true)
+  }
+
+  const handleDeleteIssuer = (issuer) => {
+    if (!window.confirm(`Delete issuer "${issuer.name}"?`)) return
+    setIssuers((prev) => prev.filter((entry) => entry.id !== issuer.id))
+    showToast.success(`"${issuer.name}" deleted`)
+  }
+
+  const handleExportReport = () => {
+    exportRowsToExcel(
+      issuers.map(({ id, name, code, type, status, country, email, totalTenders, avgTenderValue }) => ({
+        id, name, code, type, status, country, email, totalTenders, avgTenderValue
+      })),
+      { sheetName: 'Issuers', fileName: 'issuer_master_report.xlsx' }
+    )
+  }
+
+  const closeFormModal = () => {
+    setShowFormModal(false)
+    setEditingItem(null)
+  }
+
+  const handleFormSubmit = (formData) => {
+    if (editingItem) {
+      setIssuers((prev) =>
+        prev.map((entry) =>
+          entry.id === editingItem.id
+            ? {
+                ...entry,
+                name: formData.name,
+                code: formData.code,
+                type: formData.type,
+                country: formData.country,
+                region: formData.country,
+                email: formData.email
+              }
+            : entry
+        )
+      )
+      showToast.success(`Issuer "${formData.name}" updated`)
+      closeFormModal()
+      return
+    }
+
+    const newIssuer = {
+      id: Date.now(),
+      name: formData.name,
+      code: formData.code,
+      type: formData.type,
+      status: 'Active',
+      country: formData.country,
+      region: formData.country,
+      contactPerson: formData.name,
+      email: formData.email,
+      phone: '',
+      address: '',
+      aiAssessment: 'New issuer — assessment pending',
+      aiConfidence: 75,
+      priority: 'Medium',
+      totalTenders: 0,
+      avgTenderValue: 0,
+      lastTender: '—'
+    }
+    setIssuers((prev) => [...prev, newIssuer])
+    closeFormModal()
+    showToast.success(`Issuer "${formData.name}" created`)
+  }
+
+  const stats = useMemo(() => {
+    const active = issuers.filter((i) => i.status === 'Active').length
+    const countries = new Set(issuers.map((i) => i.country)).size
+    const types = new Set(issuers.map((i) => i.type)).size
+    const totalTenders = issuers.reduce((sum, i) => sum + (i.totalTenders || 0), 0)
+    const avgTenderValue = issuers.length
+      ? issuers.reduce((sum, i) => sum + (i.avgTenderValue || 0), 0) / issuers.length
+      : 0
+    const aiConfidence = issuers.length
+      ? Math.round(issuers.reduce((sum, i) => sum + (i.aiConfidence || 0), 0) / issuers.length)
+      : 0
+    return {
+      totalIssuers: issuers.length,
+      active,
+      types,
+      aiConfidence,
+      totalTenders,
+      avgTenderValue,
+      countries
+    }
+  }, [issuers])
 
   const getStatusBadge = (status) => {
     const variants = {
@@ -229,7 +333,7 @@ const IssuerMaster = () => {
               <Plus size={16} className="me-2" />
               New Issuer
             </Button>
-            <Button variant="outline-secondary">
+            <Button variant="outline-secondary" onClick={handleExportReport}>
               <Building size={16} className="me-2" />
               Export Report
             </Button>
@@ -313,17 +417,10 @@ const IssuerMaster = () => {
                         >
                           <Eye size={14} />
                         </Button>
-                        <Button
-                          variant="outline-warning"
-                          size="sm"
-                          className="me-1"
-                        >
+                        <Button variant="outline-warning" size="sm" className="me-1" onClick={() => handleEditIssuer(issuer)}>
                           <Edit size={14} />
                         </Button>
-                        <Button
-                          variant="outline-danger"
-                          size="sm"
-                        >
+                        <Button variant="outline-danger" size="sm" onClick={() => handleDeleteIssuer(issuer)}>
                           <Trash2 size={14} />
                         </Button>
                       </div>
@@ -399,12 +496,33 @@ const IssuerMaster = () => {
           <Button variant="secondary" onClick={() => setShowModal(false)}>
             Close
           </Button>
-          <Button variant="primary">
+          <Button variant="primary" onClick={() => { setShowModal(false); handleEditIssuer(selectedIssuer) }}>
             <Edit size={16} className="me-2" />
             Edit Issuer
           </Button>
         </Modal.Footer>
       </Modal>
+
+      <AdminWorkspaceModal
+        show={showFormModal}
+        onHide={closeFormModal}
+        title={editingItem ? `Edit Issuer — ${editingItem.name}` : 'New Issuer'}
+        description={editingItem ? 'Update issuer master record.' : 'Add a tender issuer to the master directory.'}
+        submitLabel={editingItem ? 'Save changes' : 'Create Issuer'}
+        fields={ISSUER_FORM_FIELDS}
+        initialValues={
+          editingItem
+            ? {
+                name: editingItem.name,
+                code: editingItem.code,
+                type: editingItem.type,
+                country: editingItem.country,
+                email: editingItem.email
+              }
+            : {}
+        }
+        onSubmit={handleFormSubmit}
+      />
     </>
   )
 }

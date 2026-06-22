@@ -2,15 +2,27 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { Row, Col, Button, Form, Table, Badge, Modal, Alert } from 'react-bootstrap'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
+import PostAwardWorkspaceModal from './components/PostAwardWorkspaceModal'
+import { exportRowsToExcel } from './utils/exportReport'
 import { Search, Plus, Edit, Trash2, Eye, Archive, FileText, Brain, CheckCircle, Clock, Download } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { showToast } from '../../utils/toast'
 import './CloseoutArchive.scss'
+
+const CLOSEOUT_FIELDS = [
+  { name: 'projectName', label: 'Project name', placeholder: 'Bridge rehabilitation program', required: true },
+  { name: 'projectId', label: 'Project ID', placeholder: 'PROJ-2024-010', required: true },
+  { name: 'client', label: 'Client', placeholder: 'Public works authority', required: true },
+  { name: 'contractValue', label: 'Contract value (USD)', type: 'number', min: 0, required: true },
+  { name: 'endDate', label: 'Planned end date', type: 'date', required: true }
+]
 
 const CloseoutArchive = () => {
   const navigate = useNavigate()
   const [closeouts, setCloseouts] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [showFormModal, setShowFormModal] = useState(false)
   const [selectedCloseout, setSelectedCloseout] = useState(null)
 
   useEffect(() => {
@@ -142,6 +154,7 @@ const CloseoutArchive = () => {
           c.id === closeout.id ? { ...c, status: 'Completed', closeoutDate: new Date().toISOString().split('T')[0] } : c
         )
       )
+      showToast.success(`"${closeout.projectName}" marked as completed`)
     }
   }
 
@@ -152,7 +165,82 @@ const CloseoutArchive = () => {
           c.id === closeout.id ? { ...c, status: 'Archived', archivedDate: new Date().toISOString().split('T')[0] } : c
         )
       )
+      showToast.success(`"${closeout.projectName}" archived`)
     }
+  }
+
+  const handleNewCloseout = (formData) => {
+    const projectName = String(formData.projectName || '').trim()
+    const projectId = String(formData.projectId || '').trim()
+    const client = String(formData.client || '').trim()
+    const endDate = String(formData.endDate || '').trim()
+    const contractValue = Number(formData.contractValue)
+
+    if (!projectName || !projectId || !client || !endDate) {
+      showToast.error('Please complete all required fields')
+      return
+    }
+
+    if (!Number.isFinite(contractValue) || contractValue < 0) {
+      showToast.error('Enter a valid contract value')
+      return
+    }
+
+    if (closeouts.some((item) => item.projectId.toLowerCase() === projectId.toLowerCase())) {
+      showToast.error(`Project ID "${projectId}" already exists`)
+      return
+    }
+
+    const newCloseout = {
+      id: Date.now(),
+      projectName,
+      projectId,
+      client,
+      contractValue,
+      currency: 'USD',
+      startDate: new Date().toISOString().split('T')[0],
+      endDate,
+      status: 'In Progress',
+      closeoutDate: null,
+      archivedDate: null,
+      documents: 0,
+      deliverables: 0,
+      aiComplianceScore: 0,
+      aiRecommendation: 'Awaiting closeout documentation upload.',
+      aiConfidence: 0,
+      retentionPeriod: '7 years',
+      archiveLocation: 'Pending'
+    }
+
+    setCloseouts((prev) => [...prev, newCloseout])
+    setSearchTerm('')
+    showToast.success(`Closeout registry opened for ${projectName}`)
+    setShowFormModal(false)
+  }
+
+  const handleExportReport = () => {
+    exportRowsToExcel(
+      closeouts.map((closeout) => ({
+        'Project Name': closeout.projectName,
+        'Project ID': closeout.projectId,
+        Client: closeout.client,
+        'Contract Value': closeout.contractValue,
+        Status: closeout.status,
+        'Closeout Date': closeout.closeoutDate || 'Pending',
+        'Archived Date': closeout.archivedDate || 'Pending',
+        Documents: closeout.documents,
+        'Compliance Score': closeout.aiComplianceScore
+      })),
+      { sheetName: 'Closeout Archive', fileName: 'closeout_archive_report.xlsx' }
+    )
+  }
+
+  const handleExportDetails = () => {
+    if (!selectedCloseout) return
+    exportRowsToExcel([selectedCloseout], {
+      sheetName: 'Project Details',
+      fileName: `${selectedCloseout.projectId}_closeout_details.xlsx`
+    })
   }
 
   const getStatusBadge = (status) => {
@@ -254,11 +342,11 @@ const CloseoutArchive = () => {
         tableTitle={`Project closeout & archive (${closeouts.length})`}
         tableActions={
           <>
-            <Button variant="primary" className="me-2">
+            <Button variant="primary" className="me-2" onClick={() => setShowFormModal(true)}>
               <Plus size={16} className="me-2" />
               New Closeout
             </Button>
-            <Button variant="outline-secondary">
+            <Button variant="outline-secondary" onClick={handleExportReport}>
               <Download size={16} className="me-2" />
               Export Report
             </Button>
@@ -472,12 +560,22 @@ const CloseoutArchive = () => {
           <Button variant="secondary" onClick={() => setShowModal(false)}>
             Close
           </Button>
-          <Button variant="primary">
+          <Button variant="primary" onClick={handleExportDetails}>
             <Download size={16} className="me-2" />
             Export Details
           </Button>
         </Modal.Footer>
       </Modal>
+
+      <PostAwardWorkspaceModal
+        show={showFormModal}
+        onHide={() => setShowFormModal(false)}
+        title="New closeout"
+        description="Register a project for closeout and archival tracking."
+        submitLabel="Create closeout"
+        fields={CLOSEOUT_FIELDS}
+        onSubmit={handleNewCloseout}
+      />
     </>
   )
 }

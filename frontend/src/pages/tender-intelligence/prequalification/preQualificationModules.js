@@ -5,7 +5,9 @@ export const PRE_QUALIFICATION_MODULES = [
     description: 'Accounts, hierarchies, and relationship context.',
     path: '/tender-intelligence/prequalification/customer-management',
     color: 'primary',
-    implemented: true
+    implemented: true,
+    statusLabel: 'Live',
+    actionLabel: 'Open workspace'
   },
   {
     id: 'certification-tracking',
@@ -13,7 +15,9 @@ export const PRE_QUALIFICATION_MODULES = [
     description: 'ISO, CE, UL, FDA certs with evidence artifacts.',
     path: '/tender-intelligence/prequalification/certification-tracking',
     color: 'success',
-    implemented: true
+    implemented: true,
+    statusLabel: 'Live',
+    actionLabel: 'Open workspace'
   },
   {
     id: 'expiry-monitoring',
@@ -21,7 +25,9 @@ export const PRE_QUALIFICATION_MODULES = [
     description: 'Expiry radar with severity and countdown rules.',
     path: '/tender-intelligence/prequalification/expiry-monitoring',
     color: 'warning',
-    implemented: false
+    implemented: false,
+    statusLabel: 'Coming soon',
+    actionLabel: 'Preview module'
   },
   {
     id: 'automated-reminders',
@@ -29,7 +35,9 @@ export const PRE_QUALIFICATION_MODULES = [
     description: 'Renewal queues, escalations, and owner nudges.',
     path: '/tender-intelligence/prequalification/automated-reminders',
     color: 'info',
-    implemented: false
+    implemented: false,
+    statusLabel: 'Coming soon',
+    actionLabel: 'Preview module'
   },
   {
     id: 'compliance-dashboard',
@@ -37,7 +45,9 @@ export const PRE_QUALIFICATION_MODULES = [
     description: 'Heatmaps, coverage ratios, and open findings.',
     path: '/tender-intelligence/prequalification/compliance-dashboard',
     color: 'primary',
-    implemented: false
+    implemented: false,
+    statusLabel: 'Coming soon',
+    actionLabel: 'Preview module'
   },
   {
     id: 'performance-scoring',
@@ -45,7 +55,9 @@ export const PRE_QUALIFICATION_MODULES = [
     description: 'Vendor scorecards with trends and thresholds.',
     path: '/tender-intelligence/prequalification/performance-scoring',
     color: 'success',
-    implemented: false
+    implemented: false,
+    statusLabel: 'Coming soon',
+    actionLabel: 'Preview module'
   },
   {
     id: 'document-verification',
@@ -53,7 +65,9 @@ export const PRE_QUALIFICATION_MODULES = [
     description: 'Check authenticity, versioning, and sign-offs.',
     path: '/tender-intelligence/prequalification/document-verification',
     color: 'warning',
-    implemented: false
+    implemented: false,
+    statusLabel: 'Coming soon',
+    actionLabel: 'Preview module'
   },
   {
     id: 'qualification-levels',
@@ -61,7 +75,9 @@ export const PRE_QUALIFICATION_MODULES = [
     description: 'Tiered programs with prerequisites and approvals.',
     path: '/tender-intelligence/prequalification/qualification-levels',
     color: 'info',
-    implemented: false
+    implemented: false,
+    statusLabel: 'Coming soon',
+    actionLabel: 'Preview module'
   },
   {
     id: 'audit-trail',
@@ -69,7 +85,9 @@ export const PRE_QUALIFICATION_MODULES = [
     description: 'Who changed what, when—with exportable timelines.',
     path: '/tender-intelligence/prequalification/audit-trail',
     color: 'secondary',
-    implemented: false
+    implemented: false,
+    statusLabel: 'Coming soon',
+    actionLabel: 'Preview module'
   },
   {
     id: 'external-integration',
@@ -77,7 +95,9 @@ export const PRE_QUALIFICATION_MODULES = [
     description: 'Connect MDM, ERP, and third-party vendor registries.',
     path: '/tender-intelligence/prequalification/external-integration',
     color: 'primary',
-    implemented: false
+    implemented: false,
+    statusLabel: 'Coming soon',
+    actionLabel: 'Preview module'
   },
   {
     id: 'bulk-operations',
@@ -85,7 +105,9 @@ export const PRE_QUALIFICATION_MODULES = [
     description: 'CSV import/export with validation templates.',
     path: '/tender-intelligence/prequalification/bulk-operations',
     color: 'success',
-    implemented: false
+    implemented: false,
+    statusLabel: 'Coming soon',
+    actionLabel: 'Preview module'
   },
   {
     id: 'custom-criteria',
@@ -93,9 +115,15 @@ export const PRE_QUALIFICATION_MODULES = [
     description: 'Define bespoke checks and reviewer playbooks.',
     path: '/tender-intelligence/prequalification/custom-criteria',
     color: 'warning',
-    implemented: false
+    implemented: false,
+    statusLabel: 'Coming soon',
+    actionLabel: 'Preview module'
   }
 ]
+
+export const PRE_QUALIFICATION_COMING_SOON_MODULES = PRE_QUALIFICATION_MODULES.filter(
+  (module) => !module.implemented
+)
 
 export function getPreQualModuleBySlug(slug) {
   return PRE_QUALIFICATION_MODULES.find((module) => module.id === slug)

@@ -24,6 +24,7 @@ import RegisterRespondent from './pages/auth/RegisterRespondent'
 // Auth Pages
 import Login from './pages/auth/Login'
 import ForgotPassword from './pages/auth/ForgotPassword'
+import ResetPassword from './pages/auth/ResetPassword'
 
 // About Page
 import About from './pages/About'
@@ -61,6 +62,7 @@ import MarketDeclarations from './pages/tender-intelligence/MarketDeclarations'
 import CustomerManagement from './pages/tender-intelligence/prequalification/CustomerManagement'
 import CertificationTracking from './pages/tender-intelligence/prequalification/CertificationTracking'
 import PreQualificationSubmodule from './pages/tender-intelligence/prequalification/PreQualificationSubmodule'
+import { PRE_QUALIFICATION_COMING_SOON_MODULES } from './pages/tender-intelligence/prequalification/preQualificationModules'
 
 // Document Management Subpages
 import ContentLibrary from './pages/document-management/ContentLibrary'
@@ -233,6 +235,7 @@ function App() {
         <Route path="/forgot-password" element={
             <ForgotPassword />
         } />
+        <Route path="/reset-password" element={<ResetPassword />} />
         
         {/* About Page */}
         <Route path="/about" element={<About />} />
@@ -288,6 +291,13 @@ function App() {
           <Route path="tender-intelligence/prequalification/customer-management/new" element={<CustomerManagement />} />
           <Route path="tender-intelligence/prequalification/customer-management" element={<CustomerManagement />} />
           <Route path="tender-intelligence/prequalification/certification-tracking" element={<CertificationTracking />} />
+          {PRE_QUALIFICATION_COMING_SOON_MODULES.map((module) => (
+            <Route
+              key={module.id}
+              path={`tender-intelligence/prequalification/${module.id}`}
+              element={<PreQualificationSubmodule moduleId={module.id} />}
+            />
+          ))}
           <Route path="tender-intelligence/prequalification/:slug" element={<PreQualificationSubmodule />} />
           <Route path="tender-intelligence/declarations" element={<TIDeclarations />} />
           <Route path="tender-intelligence/sources-watchlists" element={<Navigate to="/tender-intelligence/sources" replace />} />

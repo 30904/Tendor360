@@ -4,15 +4,45 @@ import { Search, Plus, Edit, Trash2, Eye, Shield, Globe, Brain, CheckCircle, Map
 import { useNavigate } from 'react-router-dom'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
+import AdminWorkspaceModal from '../../components/admin/AdminWorkspaceModal'
+import { showToast } from '../../utils/toast'
+import { exportRowsToExcel } from '../../utils/exportReport'
 import './DataResidency.scss'
+
+const REGION_LABELS = {
+  EU: 'European Union',
+  US: 'United States',
+  APAC: 'Asia-Pacific'
+}
+
+const REGION_CODES = Object.fromEntries(
+  Object.entries(REGION_LABELS).map(([code, label]) => [label, code])
+)
+
+const RESIDENCY_FORM_FIELDS = [
+  { name: 'name', label: 'Name', required: true },
+  {
+    name: 'region',
+    label: 'Region',
+    type: 'select',
+    required: true,
+    options: [
+      { value: 'EU', label: 'EU' },
+      { value: 'US', label: 'US' },
+      { value: 'APAC', label: 'APAC' }
+    ]
+  },
+  { name: 'description', label: 'Description', type: 'textarea', required: true }
+]
 
 const DataResidency = () => {
   const navigate = useNavigate()
   const [residencyRules, setResidencyRules] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [showFormModal, setShowFormModal] = useState(false)
   const [selectedRule, setSelectedRule] = useState(null)
-  const [stats, setStats] = useState({})
+  const [editingItem, setEditingItem] = useState(null)
 
   useEffect(() => {
     setResidencyRules([
@@ -59,16 +89,6 @@ const DataResidency = () => {
         regulations: ['PDPA', 'Privacy Act', 'Data Protection Law']
       }
     ])
-
-    setStats({
-      totalRules: 3,
-      active: 3,
-      regions: 3,
-      aiConfidence: 93,
-      avgComplianceScore: 95,
-      criticalRules: 1,
-      lastAudit: '2024-02-10'
-    })
   }, [])
 
   const handleViewRule = (rule) => {
@@ -77,10 +97,100 @@ const DataResidency = () => {
   }
 
   const handleCreateRule = () => {
-    if (window.confirm('Are you sure you want to create a new data residency rule?')) {
-      console.log('Creating new data residency rule...')
-    }
+    setEditingItem(null)
+    setShowFormModal(true)
   }
+
+  const handleEditRule = (rule) => {
+    setEditingItem(rule)
+    setShowFormModal(true)
+  }
+
+  const handleDeleteRule = (rule) => {
+    if (!window.confirm(`Delete rule "${rule.name}"?`)) return
+    setResidencyRules((prev) => prev.filter((entry) => entry.id !== rule.id))
+    showToast.success(`"${rule.name}" deleted`)
+  }
+
+  const handleComplianceReport = () => {
+    exportRowsToExcel(
+      residencyRules.map(({ name, region, status, complianceScore, priority, lastAudit }) => ({
+        name, region, status, complianceScore, priority, lastAudit
+      })),
+      { sheetName: 'Data Residency', fileName: 'compliance_residency_report.xlsx' }
+    )
+  }
+
+  const closeFormModal = () => {
+    setShowFormModal(false)
+    setEditingItem(null)
+  }
+
+  const handleFormSubmit = (formData) => {
+    if (editingItem) {
+      setResidencyRules((prev) =>
+        prev.map((entry) =>
+          entry.id === editingItem.id
+            ? {
+                ...entry,
+                name: formData.name,
+                description: formData.description,
+                region: REGION_LABELS[formData.region] || formData.region
+              }
+            : entry
+        )
+      )
+      showToast.success(`Rule "${formData.name}" updated`)
+      closeFormModal()
+      return
+    }
+
+    const newRule = {
+      id: Date.now(),
+      name: formData.name,
+      description: formData.description,
+      region: REGION_LABELS[formData.region] || formData.region,
+      status: 'Active',
+      dataTypes: ['Personal Data'],
+      aiOptimization: 'New residency rule configuration',
+      aiConfidence: 85,
+      priority: 'Medium',
+      lastAudit: new Date().toISOString().slice(0, 10),
+      complianceScore: 90,
+      regulations: []
+    }
+    setResidencyRules((prev) => [...prev, newRule])
+    closeFormModal()
+    showToast.success(`Rule "${formData.name}" created`)
+  }
+
+  const stats = useMemo(() => {
+    const regions = new Set(residencyRules.map((r) => r.region)).size
+    const criticalRules = residencyRules.filter((r) => r.priority === 'Critical').length
+    const avgComplianceScore = residencyRules.length
+      ? Math.round(
+          residencyRules.reduce((sum, r) => sum + (r.complianceScore || 0), 0) / residencyRules.length
+        )
+      : 0
+    const aiConfidence = residencyRules.length
+      ? Math.round(
+          residencyRules.reduce((sum, r) => sum + (r.aiConfidence || 0), 0) / residencyRules.length
+        )
+      : 0
+    const lastAudit = residencyRules.reduce(
+      (latest, r) => (!latest || r.lastAudit > latest ? r.lastAudit : latest),
+      null
+    )
+    return {
+      totalRules: residencyRules.length,
+      active: residencyRules.filter((r) => r.status === 'Active').length,
+      regions,
+      aiConfidence,
+      avgComplianceScore,
+      criticalRules,
+      lastAudit
+    }
+  }, [residencyRules])
 
   const getStatusBadge = (status) => {
     const variants = {
@@ -220,7 +330,7 @@ const DataResidency = () => {
               <Plus size={16} className="me-2" />
               New Rule
             </Button>
-            <Button variant="outline-secondary">
+            <Button variant="outline-secondary" onClick={handleComplianceReport}>
               <Shield size={16} className="me-2" />
               Compliance Report
             </Button>
@@ -307,17 +417,10 @@ const DataResidency = () => {
                         >
                           <Eye size={14} />
                         </Button>
-                        <Button
-                          variant="outline-warning"
-                          size="sm"
-                          className="me-1"
-                        >
+                        <Button variant="outline-warning" size="sm" className="me-1" onClick={() => handleEditRule(rule)}>
                           <Edit size={14} />
                         </Button>
-                        <Button
-                          variant="outline-danger"
-                          size="sm"
-                        >
+                        <Button variant="outline-danger" size="sm" onClick={() => handleDeleteRule(rule)}>
                           <Trash2 size={14} />
                         </Button>
                       </div>
@@ -410,12 +513,31 @@ const DataResidency = () => {
           <Button variant="secondary" onClick={() => setShowModal(false)}>
             Close
           </Button>
-          <Button variant="primary">
+          <Button variant="primary" onClick={() => { setShowModal(false); handleEditRule(selectedRule) }}>
             <Edit size={16} className="me-2" />
             Edit Rule
           </Button>
         </Modal.Footer>
       </Modal>
+
+      <AdminWorkspaceModal
+        show={showFormModal}
+        onHide={closeFormModal}
+        title={editingItem ? `Edit Rule — ${editingItem.name}` : 'New Data Residency Rule'}
+        description={editingItem ? 'Update residency and compliance rule.' : 'Define where data must be stored and processed.'}
+        submitLabel={editingItem ? 'Save changes' : 'Create Rule'}
+        fields={RESIDENCY_FORM_FIELDS}
+        initialValues={
+          editingItem
+            ? {
+                name: editingItem.name,
+                region: REGION_CODES[editingItem.region] || editingItem.region,
+                description: editingItem.description
+              }
+            : {}
+        }
+        onSubmit={handleFormSubmit}
+      />
     </>
   )
 }

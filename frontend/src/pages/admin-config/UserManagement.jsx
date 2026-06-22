@@ -27,6 +27,7 @@ const UserManagement = () => {
     itemsPerPage: 10
   })
   const [currentUser, setCurrentUser] = useState(null)
+  const [viewingUser, setViewingUser] = useState(null)
   const userFormRef = useRef(null)
 
   // Load initial data
@@ -70,12 +71,9 @@ const UserManagement = () => {
         ...filters
       }
 
-      console.log('Loading users with params:', params)
       const response = await userAPI.getUsers(params)
-      console.log('API response:', response)
       
       if (response && response.success) {
-        console.log('Users loaded successfully:', response.data.users)
         setUsers(response.data.users || [])
         setPagination(response.data.pagination || {
           currentPage: 1,
@@ -101,7 +99,6 @@ const UserManagement = () => {
       const response = await userAPI.getUserStats()
       
       if (response.success) {
-        console.log('Stats loaded:', response.data.overview)
         setStats(response.data.overview || {})
       } else {
         console.error('Failed to load stats:', response.message)
@@ -115,20 +112,15 @@ const UserManagement = () => {
   // Load available roles
   const loadRoles = async () => {
     try {
-      console.log('Loading roles...')
       const response = await userAPI.getRoles()
-      console.log('Roles API response:', response)
       
       if (response && response.success) {
-        console.log('Roles data:', response.data.roles)
-        // Transform roles to match expected structure
         const transformedRoles = response.data.roles.map(role => ({
           _id: role.value, // Use value as ID
           id: role.value,  // Also provide id for compatibility
           name: role.value, // Use value as name
           displayName: role.label // Use label as display name
         }))
-        console.log('Transformed roles:', transformedRoles)
         setRoles(transformedRoles)
       } else {
         console.error('Failed to load roles:', response?.message || 'Unknown error')
@@ -176,8 +168,7 @@ const UserManagement = () => {
   }
 
   const handleViewUser = (user) => {
-    console.log('View user:', user)
-    // Navigate to user details or open view modal
+    setViewingUser(user)
   }
 
   const handleResetPassword = async (user) => {
@@ -591,7 +582,6 @@ const UserManagement = () => {
                     <Form.Label>Role *</Form.Label>
                     <Form.Select name="role" defaultValue={editingUser?.role || ''} required>
                       <option value="">Select Role</option>
-                      {console.log('Available roles for dropdown:', roles)}
                       {roles.map(role => (
                         <option key={role._id || role.id} value={role.name}>{role.displayName || role.name}</option>
                       ))}
@@ -649,7 +639,7 @@ const UserManagement = () => {
               )}
             </Modal.Body>
             <Modal.Footer>
-              <Button variant="secondary" onClick={() => setShowModal(false)} disabled={loading}>
+              <Button variant="secondary" type="button" onClick={() => setShowModal(false)} disabled={loading}>
                 Cancel
               </Button>
               <Button variant="primary" type="submit" disabled={loading}>
@@ -665,6 +655,47 @@ const UserManagement = () => {
             </Modal.Footer>
           </Form>
         </FormDrawerModal>
+
+        <Modal show={viewingUser !== null} onHide={() => setViewingUser(null)} size="lg">
+          <Modal.Header closeButton>
+            <Modal.Title>
+              <User size={20} className="me-2" />
+              User Details — {viewingUser?.firstName} {viewingUser?.lastName}
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            {viewingUser ? (
+              <Row>
+                <Col md={6}>
+                  <p><strong>Email:</strong> {viewingUser.email}</p>
+                  <p><strong>Role:</strong> {viewingUser.role}</p>
+                  <p><strong>Department:</strong> {viewingUser.department || '—'}</p>
+                  <p><strong>Position:</strong> {viewingUser.position || '—'}</p>
+                </Col>
+                <Col md={6}>
+                  <p><strong>Status:</strong> {viewingUser.status || (viewingUser.isActive ? 'Active' : 'Inactive')}</p>
+                  <p><strong>Phone:</strong> {viewingUser.phone || '—'}</p>
+                  <p><strong>Last login:</strong> {viewingUser.lastLoginAt ? new Date(viewingUser.lastLoginAt).toLocaleString() : '—'}</p>
+                </Col>
+              </Row>
+            ) : null}
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" type="button" onClick={() => setViewingUser(null)}>
+              Close
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                const user = viewingUser
+                setViewingUser(null)
+                handleEditUser(user)
+              }}
+            >
+              Edit User
+            </Button>
+          </Modal.Footer>
+        </Modal>
     </>
   )
 }

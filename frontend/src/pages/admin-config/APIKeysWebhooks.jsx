@@ -4,7 +4,25 @@ import { Search, Plus, Edit, Trash2, Eye, Key, Webhook, Brain, CheckCircle, Sett
 import { useNavigate } from 'react-router-dom'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
+import AdminWorkspaceModal from '../../components/admin/AdminWorkspaceModal'
+import { showToast } from '../../utils/toast'
 import './APIKeysWebhooks.scss'
+
+const API_KEY_FORM_FIELDS = [
+  { name: 'name', label: 'Name', required: true },
+  { name: 'description', label: 'Description', type: 'textarea', required: true }
+]
+
+const WEBHOOK_FORM_FIELDS = [
+  { name: 'name', label: 'Name', required: true },
+  { name: 'url', label: 'URL', type: 'url', required: true },
+  { name: 'description', label: 'Description', type: 'textarea', required: true }
+]
+
+const generateApiKey = () => {
+  const segment = () => Math.random().toString(36).slice(2, 6)
+  return `tm_api_${segment()}_****_****_****`
+}
 
 const APIKeysWebhooks = () => {
   const navigate = useNavigate()
@@ -13,8 +31,9 @@ const APIKeysWebhooks = () => {
   const [activeTab, setActiveTab] = useState('apikeys')
   const [searchTerm, setSearchTerm] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [showFormModal, setShowFormModal] = useState(false)
   const [selectedItem, setSelectedItem] = useState(null)
-  const [stats, setStats] = useState({})
+  const [editingItem, setEditingItem] = useState(null)
 
   useEffect(() => {
     setApiKeys([
@@ -106,17 +125,6 @@ const APIKeysWebhooks = () => {
         retryCount: 1
       }
     ])
-
-    setStats({
-      totalApiKeys: 3,
-      totalWebhooks: 3,
-      activeApiKeys: 2,
-      activeWebhooks: 2,
-      aiConfidence: 92,
-      totalUsage: 2596,
-      totalTriggers: 590,
-      highPriority: 2
-    })
   }, [])
 
   const handleViewItem = (item) => {
@@ -126,14 +134,115 @@ const APIKeysWebhooks = () => {
 
   const handleCopyKey = (key) => {
     navigator.clipboard.writeText(key)
-    console.log('API key copied to clipboard')
+    showToast.success('API key copied to clipboard')
   }
 
   const handleCreateItem = () => {
-    if (window.confirm(`Are you sure you want to create a new ${activeTab === 'apikeys' ? 'API key' : 'webhook'}?`)) {
-      console.log(`Creating new ${activeTab === 'apikeys' ? 'API key' : 'webhook'}...`)
-    }
+    setEditingItem(null)
+    setShowFormModal(true)
   }
+
+  const handleEditItem = (item) => {
+    setEditingItem(item)
+    setShowFormModal(true)
+  }
+
+  const handleDeleteItem = (item) => {
+    if (!window.confirm(`Delete "${item.name}"?`)) return
+    if (activeTab === 'apikeys') {
+      setApiKeys((prev) => prev.filter((entry) => entry.id !== item.id))
+    } else {
+      setWebhooks((prev) => prev.filter((entry) => entry.id !== item.id))
+    }
+    showToast.success(`"${item.name}" deleted`)
+  }
+
+  const closeFormModal = () => {
+    setShowFormModal(false)
+    setEditingItem(null)
+  }
+
+  const handleFormSubmit = (formData) => {
+    if (editingItem) {
+      if (activeTab === 'apikeys') {
+        setApiKeys((prev) =>
+          prev.map((entry) =>
+            entry.id === editingItem.id ? { ...entry, name: formData.name, description: formData.description } : entry
+          )
+        )
+      } else {
+        setWebhooks((prev) =>
+          prev.map((entry) =>
+            entry.id === editingItem.id
+              ? { ...entry, name: formData.name, url: formData.url, description: formData.description }
+              : entry
+          )
+        )
+      }
+      showToast.success(`"${formData.name}" updated`)
+      closeFormModal()
+      return
+    }
+
+    if (activeTab === 'apikeys') {
+      const expiry = new Date()
+      expiry.setFullYear(expiry.getFullYear() + 1)
+      const newKey = {
+        id: Date.now(),
+        name: formData.name,
+        key: generateApiKey(),
+        description: formData.description,
+        status: 'Active',
+        lastUsed: 'Never',
+        usage: 0,
+        aiOptimization: 'New API key configuration',
+        aiConfidence: 85,
+        priority: 'Medium',
+        permissions: ['read', 'write'],
+        expiryDate: expiry.toISOString().slice(0, 10)
+      }
+      setApiKeys((prev) => [...prev, newKey])
+      showToast.success(`API key "${formData.name}" created`)
+    } else {
+      const newWebhook = {
+        id: Date.now(),
+        name: formData.name,
+        url: formData.url,
+        description: formData.description,
+        status: 'Active',
+        lastTriggered: 'Never',
+        triggers: 0,
+        aiOptimization: 'New webhook configuration',
+        aiConfidence: 85,
+        priority: 'Medium',
+        events: [],
+        retryCount: 3
+      }
+      setWebhooks((prev) => [...prev, newWebhook])
+      showToast.success(`Webhook "${formData.name}" created`)
+    }
+    closeFormModal()
+  }
+
+  const stats = useMemo(() => {
+    const allItems = [...apiKeys, ...webhooks]
+    const totalUsage = apiKeys.reduce((sum, k) => sum + (k.usage || 0), 0)
+    const totalTriggers = webhooks.reduce((sum, w) => sum + (w.triggers || 0), 0)
+    const highPriority = allItems.filter((i) => i.priority === 'High').length
+    const aiConfidence = allItems.length
+      ? Math.round(allItems.reduce((sum, i) => sum + (i.aiConfidence || 0), 0) / allItems.length)
+      : 0
+    return {
+      totalApiKeys: apiKeys.length,
+      totalWebhooks: webhooks.length,
+      activeApiKeys: apiKeys.filter((k) => k.status === 'Active').length,
+      activeWebhooks: webhooks.filter((w) => w.status === 'Active').length,
+      aiConfidence,
+      totalUsage,
+      totalTriggers,
+      highPriority
+    }
+  }, [apiKeys, webhooks])
 
   const getStatusBadge = (status) => {
     const variants = {
@@ -256,7 +365,7 @@ const APIKeysWebhooks = () => {
               <Plus size={16} className="me-2" />
               New {activeTab === 'apikeys' ? 'API Key' : 'Webhook'}
             </Button>
-            <Button variant="outline-secondary">
+            <Button variant="outline-secondary" onClick={() => navigate('/admin-config/security-settings')}>
               <Settings size={16} className="me-2" />
               Security Settings
             </Button>
@@ -412,12 +521,14 @@ const APIKeysWebhooks = () => {
                           variant="outline-warning"
                           size="sm"
                           className="me-1"
+                          onClick={() => handleEditItem(item)}
                         >
                           <Edit size={14} />
                         </Button>
                         <Button
                           variant="outline-danger"
                           size="sm"
+                          onClick={() => handleDeleteItem(item)}
                         >
                           <Trash2 size={14} />
                         </Button>
@@ -531,12 +642,55 @@ const APIKeysWebhooks = () => {
           <Button variant="secondary" onClick={() => setShowModal(false)}>
             Close
           </Button>
-          <Button variant="primary">
+          <Button
+            variant="primary"
+            onClick={() => {
+              setShowModal(false)
+              handleEditItem(selectedItem)
+            }}
+          >
             <Edit size={16} className="me-2" />
             Edit {activeTab === 'apikeys' ? 'API Key' : 'Webhook'}
           </Button>
         </Modal.Footer>
       </Modal>
+
+      <AdminWorkspaceModal
+        show={showFormModal}
+        onHide={closeFormModal}
+        title={
+          editingItem
+            ? `Edit ${activeTab === 'apikeys' ? 'API Key' : 'Webhook'}`
+            : activeTab === 'apikeys'
+              ? 'New API Key'
+              : 'New Webhook'
+        }
+        description={
+          activeTab === 'apikeys'
+            ? editingItem
+              ? 'Update API credential metadata.'
+              : 'Issue a new API credential for platform integrations.'
+            : editingItem
+              ? 'Update webhook endpoint configuration.'
+              : 'Register an outbound webhook endpoint.'
+        }
+        submitLabel={
+          editingItem
+            ? 'Save changes'
+            : activeTab === 'apikeys'
+              ? 'Create API Key'
+              : 'Create Webhook'
+        }
+        fields={activeTab === 'apikeys' ? API_KEY_FORM_FIELDS : WEBHOOK_FORM_FIELDS}
+        initialValues={
+          editingItem
+            ? activeTab === 'apikeys'
+              ? { name: editingItem.name, description: editingItem.description }
+              : { name: editingItem.name, url: editingItem.url, description: editingItem.description }
+            : {}
+        }
+        onSubmit={handleFormSubmit}
+      />
     </>
   )
 }

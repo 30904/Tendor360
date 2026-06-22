@@ -6,6 +6,17 @@ import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
 import { Search, Plus, Edit, Trash2, Eye, Award, TrendingUp, AlertCircle, CheckCircle, Brain } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { dummySlaKpiPrefill } from '../../utils/testFormDummies'
+import { showToast } from '../../utils/toast'
+
+const EMPTY_FORM = {
+  name: '',
+  contract: '',
+  description: '',
+  target: '',
+  current: '',
+  status: 'On Track',
+  trend: 'up'
+}
 
 const SLAsKPIs = () => {
   const navigate = useNavigate()
@@ -14,8 +25,7 @@ const SLAsKPIs = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
-  const [prefillSnapshot, setPrefillSnapshot] = useState(null)
-  const [modalFormKey, setModalFormKey] = useState(0)
+  const [formData, setFormData] = useState(EMPTY_FORM)
   const [activeTab, setActiveTab] = useState('slas')
 
   useEffect(() => {
@@ -116,10 +126,90 @@ const SLAsKPIs = () => {
   }, [stats])
 
   const handleEditItem = (item) => {
-    setPrefillSnapshot(null)
     setEditingItem(item)
-    setModalFormKey((k) => k + 1)
+    setFormData({
+      name: item.name || '',
+      contract: item.contract || '',
+      description: item.description || '',
+      target: item.target || '',
+      current: item.current || '',
+      status: item.status || 'On Track',
+      trend: item.trend || 'up'
+    })
     setShowModal(true)
+  }
+
+  const handleOpenAddModal = () => {
+    setEditingItem(null)
+    setFormData({ ...EMPTY_FORM })
+    setShowModal(true)
+  }
+
+  const handleFormChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handleSubmit = (event) => {
+    event.preventDefault()
+
+    const name = formData.name.trim()
+    if (!name) {
+      showToast.error('Name is required')
+      return
+    }
+
+    const payload = {
+      name,
+      contract: formData.contract.trim(),
+      description: formData.description.trim(),
+      target: formData.target.trim(),
+      current: formData.current.trim(),
+      lastUpdated: new Date().toISOString().split('T')[0]
+    }
+
+    if (activeTab === 'slas') {
+      const slaPayload = {
+        ...payload,
+        status: formData.status || 'On Track'
+      }
+
+      if (editingItem) {
+        setSlas((prev) => prev.map((item) => (item.id === editingItem.id ? { ...item, ...slaPayload } : item)))
+        showToast.success(`SLA "${name}" updated`)
+      } else {
+        setSlas((prev) => [...prev, { id: Date.now(), ...slaPayload }])
+        showToast.success(`SLA "${name}" created`)
+      }
+    } else {
+      const kpiPayload = {
+        ...payload,
+        trend: formData.trend || 'up'
+      }
+
+      if (editingItem) {
+        setKpis((prev) => prev.map((item) => (item.id === editingItem.id ? { ...item, ...kpiPayload } : item)))
+        showToast.success(`KPI "${name}" updated`)
+      } else {
+        setKpis((prev) => [...prev, { id: Date.now(), ...kpiPayload }])
+        showToast.success(`KPI "${name}" created`)
+      }
+    }
+
+    setSearchTerm('')
+    closeSlasModal()
+  }
+
+  const handleTestFill = () => {
+    const sample = dummySlaKpiPrefill(activeTab === 'slas')
+    setFormData({
+      name: sample.name || '',
+      contract: sample.contract || '',
+      description: sample.description || '',
+      target: sample.target || '',
+      current: sample.current || '',
+      status: sample.status || 'On Track',
+      trend: sample.trend || 'up'
+    })
   }
 
   const handleDeleteItem = (item) => {
@@ -151,13 +241,10 @@ const SLAsKPIs = () => {
 
   const currentData = activeTab === 'slas' ? slas : kpis
 
-  const formSeed = editingItem || prefillSnapshot || {}
-
   const closeSlasModal = () => {
     setShowModal(false)
     setEditingItem(null)
-    setPrefillSnapshot(null)
-    setModalFormKey((k) => k + 1)
+    setFormData({ ...EMPTY_FORM })
   }
 
   return (
@@ -234,15 +321,7 @@ const SLAsKPIs = () => {
             : `Key performance indicators (${kpis.length})`
         }
         tableActions={
-          <Button
-            variant="primary"
-            onClick={() => {
-              setEditingItem(null)
-              setPrefillSnapshot(null)
-              setModalFormKey((k) => k + 1)
-              setShowModal(true)
-            }}
-          >
+          <Button variant="primary" onClick={handleOpenAddModal}>
             <Plus size={20} className="me-2" />
             Add {activeTab === 'slas' ? 'SLA' : 'KPI'}
           </Button>
@@ -379,29 +458,23 @@ const SLAsKPIs = () => {
         show={showModal}
         onHide={closeSlasModal}
         size="lg"
-        onTestFill={
-          showModal
-            ? () => {
-                setPrefillSnapshot(dummySlaKpiPrefill(activeTab === 'slas'))
-                setModalFormKey((k) => k + 1)
-              }
-            : undefined
-        }
+        onTestFill={showModal ? handleTestFill : undefined}
       >
         <Modal.Header closeButton>
           <Modal.Title>
             {editingItem ? `Edit ${activeTab === 'slas' ? 'SLA' : 'KPI'}` : `Add New ${activeTab === 'slas' ? 'SLA' : 'KPI'}`}
           </Modal.Title>
         </Modal.Header>
-        <Form key={modalFormKey}>
+        <Form onSubmit={handleSubmit}>
           <Modal.Body>
             <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
-                  <Form.Label>Name</Form.Label>
+                  <Form.Label>Name *</Form.Label>
                   <Form.Control
                     type="text"
-                    defaultValue={formSeed.name || ''}
+                    value={formData.name}
+                    onChange={(e) => handleFormChange('name', e.target.value)}
                     placeholder={`Enter ${activeTab === 'slas' ? 'SLA' : 'KPI'} name`}
                     required
                   />
@@ -410,7 +483,12 @@ const SLAsKPIs = () => {
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Contract</Form.Label>
-                  <Form.Control type="text" defaultValue={formSeed.contract || ''} placeholder="Contract number" />
+                  <Form.Control
+                    type="text"
+                    value={formData.contract}
+                    onChange={(e) => handleFormChange('contract', e.target.value)}
+                    placeholder="Contract number"
+                  />
                 </Form.Group>
               </Col>
             </Row>
@@ -419,7 +497,8 @@ const SLAsKPIs = () => {
               <Form.Control
                 as="textarea"
                 rows={3}
-                defaultValue={formSeed.description || ''}
+                value={formData.description}
+                onChange={(e) => handleFormChange('description', e.target.value)}
                 placeholder="Describe the SLA/KPI"
               />
             </Form.Group>
@@ -427,30 +506,55 @@ const SLAsKPIs = () => {
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Target</Form.Label>
-                  <Form.Control type="text" defaultValue={formSeed.target || ''} placeholder="Target value" />
+                  <Form.Control
+                    type="text"
+                    value={formData.target}
+                    onChange={(e) => handleFormChange('target', e.target.value)}
+                    placeholder="Target value"
+                  />
                 </Form.Group>
               </Col>
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Current</Form.Label>
-                  <Form.Control type="text" defaultValue={formSeed.current || ''} placeholder="Current value" />
+                  <Form.Control
+                    type="text"
+                    value={formData.current}
+                    onChange={(e) => handleFormChange('current', e.target.value)}
+                    placeholder="Current value"
+                  />
                 </Form.Group>
               </Col>
             </Row>
-            {activeTab === 'slas' && (
+            {activeTab === 'slas' ? (
               <Form.Group className="mb-3">
                 <Form.Label>Status</Form.Label>
-                <Form.Select defaultValue={formSeed.status || 'On Track'}>
+                <Form.Select
+                  value={formData.status}
+                  onChange={(e) => handleFormChange('status', e.target.value)}
+                >
                   <option value="On Track">On Track</option>
                   <option value="Exceeding">Exceeding</option>
                   <option value="At Risk">At Risk</option>
                   <option value="Breached">Breached</option>
                 </Form.Select>
               </Form.Group>
+            ) : (
+              <Form.Group className="mb-3">
+                <Form.Label>Trend</Form.Label>
+                <Form.Select
+                  value={formData.trend}
+                  onChange={(e) => handleFormChange('trend', e.target.value)}
+                >
+                  <option value="up">Improving</option>
+                  <option value="down">Declining</option>
+                  <option value="stable">Stable</option>
+                </Form.Select>
+              </Form.Group>
             )}
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onClick={closeSlasModal}>
+            <Button variant="secondary" type="button" onClick={closeSlasModal}>
               Cancel
             </Button>
             <Button variant="primary" type="submit">

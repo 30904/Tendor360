@@ -1,18 +1,66 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Row, Col, Button, Badge, Modal, Alert } from 'react-bootstrap'
-import { Plus, Edit, Database, Download, Upload, Brain, CheckCircle } from 'lucide-react'
+import { Plus, Edit, Database, Download, Upload, Brain, CheckCircle, Play } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
+import AdminWorkspaceModal from '../../components/admin/AdminWorkspaceModal'
+import { showToast } from '../../utils/toast'
 import './DataTools.scss'
+
+const TOOL_TYPE_OPTIONS = [
+  { value: 'Export', label: 'Export' },
+  { value: 'Import', label: 'Import' },
+  { value: 'Backup', label: 'Backup' },
+  { value: 'Validation', label: 'Validation' },
+  { value: 'Migration', label: 'Migration' },
+  { value: 'Archival', label: 'Archival' }
+]
+
+const NEW_TOOL_FIELDS = [
+  { name: 'name', label: 'Name', required: true },
+  {
+    name: 'type',
+    label: 'Type',
+    type: 'select',
+    required: true,
+    options: TOOL_TYPE_OPTIONS
+  },
+  { name: 'description', label: 'Description', type: 'textarea', required: true },
+  { name: 'frequency', label: 'Frequency', required: true, placeholder: 'Daily, Weekly, On Demand...' }
+]
+
+const EDIT_TOOL_FIELDS = [
+  { name: 'name', label: 'Name', required: true },
+  {
+    name: 'status',
+    label: 'Status',
+    type: 'select',
+    required: true,
+    options: [
+      { value: 'Active', label: 'Active' },
+      { value: 'Inactive', label: 'Inactive' }
+    ]
+  },
+  { name: 'frequency', label: 'Frequency', required: true }
+]
+
+const formatLastUsed = () => {
+  const now = new Date()
+  const date = now.toISOString().split('T')[0]
+  const time = now.toTimeString().slice(0, 5)
+  return `${date} ${time}`
+}
 
 const DataTools = () => {
   const navigate = useNavigate()
   const [dataTools, setDataTools] = useState([])
-  const [searchTerm, setSearchTerm] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [showFormModal, setShowFormModal] = useState(false)
   const [selectedTool, setSelectedTool] = useState(null)
+  const [editingItem, setEditingItem] = useState(null)
+  const [isCreating, setIsCreating] = useState(false)
   const [stats, setStats] = useState({})
 
   useEffect(() => {
@@ -126,24 +174,79 @@ const DataTools = () => {
   }
 
   const handleRunTool = (tool) => {
-    if (window.confirm(`Are you sure you want to run "${tool.name}"?`)) {
-      // Implementation for running tool
-      console.log(`Running tool: ${tool.name}`)
+    const lastUsed = formatLastUsed()
+    setDataTools((prev) =>
+      prev.map((t) => (t.id === tool.id ? { ...t, lastUsed } : t))
+    )
+    if (selectedTool?.id === tool.id) {
+      setSelectedTool((prev) => (prev ? { ...prev, lastUsed } : prev))
     }
+    showToast.success(`"${tool.name}" completed successfully`)
   }
 
   const handleEditTool = (tool) => {
-    console.log('Edit tool:', tool)
-    // Navigate to edit tool or open edit modal
+    setEditingItem(tool)
+    setIsCreating(false)
+    setShowFormModal(true)
+  }
+
+  const handleNewTool = () => {
+    setEditingItem(null)
+    setIsCreating(true)
+    setShowFormModal(true)
+  }
+
+  const handleFormSubmit = (formData) => {
+    if (isCreating) {
+      const newTool = {
+        id: Date.now(),
+        name: formData.name,
+        description: formData.description,
+        type: formData.type,
+        status: 'Active',
+        lastUsed: 'Never',
+        frequency: formData.frequency,
+        aiOptimization: 'Pending AI analysis',
+        aiConfidence: 80,
+        priority: 'Medium',
+        formats: ['CSV'],
+        size: '0 MB',
+        records: 0
+      }
+      setDataTools((prev) => [...prev, newTool])
+      setStats((prev) => ({
+        ...prev,
+        totalTools: (prev.totalTools ?? 0) + 1,
+        active: (prev.active ?? 0) + 1
+      }))
+      showToast.success(`${formData.name} created`)
+    } else if (editingItem) {
+      setDataTools((prev) =>
+        prev.map((t) =>
+          t.id === editingItem.id
+            ? { ...t, name: formData.name, status: formData.status, frequency: formData.frequency }
+            : t
+        )
+      )
+      showToast.success(`${formData.name} updated`)
+    }
+    setShowFormModal(false)
+    setEditingItem(null)
+    setIsCreating(false)
+  }
+
+  const handleSystemStatus = () => {
+    showToast.info(
+      `${stats.totalTools} tools · ${stats.active} active · ${stats.totalSize} · ${(stats.totalRecords ?? 0).toLocaleString()} records · last backup ${stats.lastBackup}`
+    )
   }
 
   const handleDeleteTool = (tool) => {
     if (window.confirm(`Are you sure you want to delete "${tool.name}"?`)) {
-      setDataTools(prev => prev.filter(t => t.id !== tool.id))
+      setDataTools((prev) => prev.filter((t) => t.id !== tool.id))
     }
   }
 
-  // Column definitions for DataTable
   const columns = [
     {
       key: 'name',
@@ -186,14 +289,15 @@ const DataTools = () => {
       label: 'Last Used',
       width: '15%',
       render: (value) => {
-        const date = new Date(value);
+        if (value === 'Never') return <span className="text-muted">Never</span>
+        const date = new Date(value)
         return date.toLocaleDateString('en-US', {
           month: '2-digit',
           day: '2-digit',
           year: 'numeric',
           hour: '2-digit',
           minute: '2-digit'
-        });
+        })
       }
     },
     {
@@ -211,29 +315,29 @@ const DataTools = () => {
 
   const getStatusBadge = (status) => {
     const variants = {
-      'Active': 'success',
-      'Inactive': 'secondary',
-      'Running': 'primary',
-      'Error': 'danger'
+      Active: 'success',
+      Inactive: 'secondary',
+      Running: 'primary',
+      Error: 'danger'
     }
     return <Badge bg={variants[status] || 'secondary'}>{status}</Badge>
   }
 
   const getPriorityBadge = (priority) => {
     const variants = {
-      'Critical': 'danger',
-      'High': 'warning',
-      'Medium': 'primary',
-      'Low': 'secondary'
+      Critical: 'danger',
+      High: 'warning',
+      Medium: 'primary',
+      Low: 'secondary'
     }
     return <Badge bg={variants[priority] || 'secondary'}>{priority}</Badge>
   }
 
   const getTypeIcon = (type) => {
     const icons = {
-      'Export': Download,
-      'Import': Upload,
-      'Backup': Database
+      Export: Download,
+      Import: Upload,
+      Backup: Database
     }
     return icons[type] || Database
   }
@@ -337,11 +441,11 @@ const DataTools = () => {
         tableTitle="Data tools management"
         tableActions={
           <>
-            <Button variant="primary" className="me-2">
+            <Button variant="primary" className="me-2" onClick={handleNewTool}>
               <Plus size={16} className="me-2" />
               New Tool
             </Button>
-            <Button variant="outline-secondary">
+            <Button variant="outline-secondary" onClick={handleSystemStatus}>
               <Database size={16} className="me-2" />
               System Status
             </Button>
@@ -375,79 +479,129 @@ const DataTools = () => {
         />
       </ExecutiveCommandCenter>
 
-        <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
-          <Modal.Header closeButton>
-            <Modal.Title>
-              <Database size={20} className="me-2" />
-              Tool Details - {selectedTool?.name}
-            </Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            {selectedTool && (
-              <div className="tool-details">
-                <Row>
-                  <Col md={6}>
-                    <h6>Basic Information</h6>
-                    <p><strong>Type:</strong> {selectedTool.type}</p>
-                    <p><strong>Status:</strong> {selectedTool.status}</p>
-                    <p><strong>Priority:</strong> {selectedTool.priority}</p>
-                    <p><strong>Frequency:</strong> {selectedTool.frequency}</p>
-                    <p><strong>Last Used:</strong> {selectedTool.lastUsed}</p>
-                  </Col>
-                  <Col md={6}>
-                    <h6>Data Information</h6>
-                    <p><strong>Size:</strong> {selectedTool.size}</p>
-                    <p><strong>Records:</strong> {selectedTool.records.toLocaleString()}</p>
-                    <p><strong>AI Confidence:</strong> {selectedTool.aiConfidence}%</p>
-                  </Col>
-                </Row>
-                <hr />
-                <Row>
-                  <Col>
-                    <h6>Description</h6>
-                    <p>{selectedTool.description}</p>
-                  </Col>
-                </Row>
-                <hr />
-                <Row>
-                  <Col>
-                    <h6>Supported Formats</h6>
-                    <div className="formats-list">
-                      {selectedTool.formats.map((format, index) => (
-                        <Badge key={index} bg="info" className="me-1 mb-1">
-                          {format}
-                        </Badge>
-                      ))}
-                    </div>
-                  </Col>
-                </Row>
-                <hr />
-                <Row>
-                  <Col>
-                    <h6>AI Assessment & Optimization</h6>
-                    <Alert variant="info">
-                      <Brain size={16} className="me-2" />
-                      <strong>Optimization:</strong> {selectedTool.aiOptimization}
-                    </Alert>
-                    <Alert variant="success">
-                      <CheckCircle size={16} className="me-2" />
-                      <strong>Confidence Level:</strong> {selectedTool.aiConfidence}% based on data processing efficiency and error analysis
-                    </Alert>
-                  </Col>
-                </Row>
-              </div>
-            )}
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowModal(false)}>
-              Close
-            </Button>
-            <Button variant="primary">
-              <Edit size={16} className="me-2" />
-              Edit Tool
-            </Button>
-          </Modal.Footer>
-        </Modal>
+      <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <Database size={20} className="me-2" />
+            Tool Details - {selectedTool?.name}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedTool && (
+            <div className="tool-details">
+              <Row>
+                <Col md={6}>
+                  <h6>Basic Information</h6>
+                  <p>
+                    <strong>Type:</strong> {selectedTool.type}
+                  </p>
+                  <p>
+                    <strong>Status:</strong> {selectedTool.status}
+                  </p>
+                  <p>
+                    <strong>Priority:</strong> {selectedTool.priority}
+                  </p>
+                  <p>
+                    <strong>Frequency:</strong> {selectedTool.frequency}
+                  </p>
+                  <p>
+                    <strong>Last Used:</strong> {selectedTool.lastUsed}
+                  </p>
+                </Col>
+                <Col md={6}>
+                  <h6>Data Information</h6>
+                  <p>
+                    <strong>Size:</strong> {selectedTool.size}
+                  </p>
+                  <p>
+                    <strong>Records:</strong> {selectedTool.records.toLocaleString()}
+                  </p>
+                  <p>
+                    <strong>AI Confidence:</strong> {selectedTool.aiConfidence}%
+                  </p>
+                </Col>
+              </Row>
+              <hr />
+              <Row>
+                <Col>
+                  <h6>Description</h6>
+                  <p>{selectedTool.description}</p>
+                </Col>
+              </Row>
+              <hr />
+              <Row>
+                <Col>
+                  <h6>Supported Formats</h6>
+                  <div className="formats-list">
+                    {selectedTool.formats.map((format, index) => (
+                      <Badge key={index} bg="info" className="me-1 mb-1">
+                        {format}
+                      </Badge>
+                    ))}
+                  </div>
+                </Col>
+              </Row>
+              <hr />
+              <Row>
+                <Col>
+                  <h6>AI Assessment & Optimization</h6>
+                  <Alert variant="info">
+                    <Brain size={16} className="me-2" />
+                    <strong>Optimization:</strong> {selectedTool.aiOptimization}
+                  </Alert>
+                  <Alert variant="success">
+                    <CheckCircle size={16} className="me-2" />
+                    <strong>Confidence Level:</strong> {selectedTool.aiConfidence}% based on data
+                    processing efficiency and error analysis
+                  </Alert>
+                </Col>
+              </Row>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowModal(false)}>
+            Close
+          </Button>
+          <Button variant="success" className="me-2" onClick={() => handleRunTool(selectedTool)}>
+            <Play size={16} className="me-2" />
+            Run Tool
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => {
+              setShowModal(false)
+              handleEditTool(selectedTool)
+            }}
+          >
+            <Edit size={16} className="me-2" />
+            Edit Tool
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <AdminWorkspaceModal
+        show={showFormModal}
+        onHide={() => {
+          setShowFormModal(false)
+          setEditingItem(null)
+          setIsCreating(false)
+        }}
+        title={isCreating ? 'New Tool' : `Edit Tool — ${editingItem?.name ?? ''}`}
+        description={
+          isCreating ? 'Register a new data operations utility.' : 'Update tool configuration.'
+        }
+        submitLabel={isCreating ? 'Create tool' : 'Save changes'}
+        fields={isCreating ? NEW_TOOL_FIELDS : EDIT_TOOL_FIELDS}
+        initialValues={
+          isCreating
+            ? {}
+            : editingItem
+              ? { name: editingItem.name, status: editingItem.status, frequency: editingItem.frequency }
+              : {}
+        }
+        onSubmit={handleFormSubmit}
+      />
     </>
   )
 }

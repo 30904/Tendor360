@@ -85,7 +85,7 @@ async function startServer() {
     setupErrorHandling(app);
 
     // Start server
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`🚀 Tender360 Backend running on port ${PORT}`);
       console.log(`📊 Environment: ${process.env.NODE_ENV}`);
       console.log(`🔗 API Base: http://localhost:${PORT}/api`);
@@ -110,6 +110,16 @@ async function startServer() {
       }
     }, 30000); // Check every 30 seconds
   });
+
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${PORT} is already in use. Stop the other process or change PORT in backend/.env`);
+        console.error(`   Windows: netstat -ano | findstr :${PORT}  then  taskkill /PID <pid> /F`);
+        process.exit(1);
+      }
+      console.error('❌ Server error:', err);
+      process.exit(1);
+    });
 
   } catch (error) {
     console.error('❌ Failed to start server:', error);

@@ -1,21 +1,58 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Row, Col, Button, Badge, Modal, Alert } from 'react-bootstrap'
-import { Plus, Edit, Trash2, Eye, Bell, Mail, MessageSquare, Brain, CheckCircle, Settings } from 'lucide-react'
+import { Row, Col, Button, Badge, Modal, Alert, Form } from 'react-bootstrap'
+import { Plus, Edit, Bell, Mail, MessageSquare, Brain, CheckCircle, Settings } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
+import AdminWorkspaceModal from '../../components/admin/AdminWorkspaceModal'
+import { showToast } from '../../utils/toast'
+import { loadAdminConfig, saveAdminConfig } from '../../utils/adminConfigStorage'
 import './NotificationSettings.scss'
+
+const GLOBAL_PREFS_KEY = 'tender360_notification_global_prefs'
+
+const DEFAULT_GLOBAL_PREFS = {
+  emailEnabled: true,
+  smsEnabled: true,
+  inAppEnabled: true,
+  quietHoursEnabled: false,
+  quietHoursStart: '22:00',
+  quietHoursEnd: '07:00',
+  defaultSenderEmail: 'notifications@tender360.com',
+  digestMode: 'immediate'
+}
+
+const NOTIFICATION_FORM_FIELDS = [
+  { name: 'name', label: 'Name', required: true },
+  {
+    name: 'type',
+    label: 'Type',
+    type: 'select',
+    required: true,
+    options: [
+      { value: 'Email', label: 'Email' },
+      { value: 'SMS', label: 'SMS' },
+      { value: 'In-App', label: 'In-App' }
+    ]
+  },
+  { name: 'frequency', label: 'Frequency', required: true, placeholder: 'Daily, Weekly, Immediate...' },
+  { name: 'description', label: 'Description', type: 'textarea', required: true }
+]
 
 const NotificationSettings = () => {
   const navigate = useNavigate()
   const [notifications, setNotifications] = useState([])
-  const [searchTerm, setSearchTerm] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [showFormModal, setShowFormModal] = useState(false)
   const [selectedNotification, setSelectedNotification] = useState(null)
+  const [editingItem, setEditingItem] = useState(null)
   const [stats, setStats] = useState({})
+  const [showGlobalSettings, setShowGlobalSettings] = useState(false)
+  const [globalPrefs, setGlobalPrefs] = useState(DEFAULT_GLOBAL_PREFS)
 
   useEffect(() => {
+    setGlobalPrefs(loadAdminConfig(GLOBAL_PREFS_KEY, DEFAULT_GLOBAL_PREFS))
     setNotifications([
       {
         id: 1,
@@ -150,24 +187,75 @@ const NotificationSettings = () => {
   const handleToggleNotification = (notification) => {
     const newStatus = notification.status === 'Active' ? 'Inactive' : 'Active'
     if (window.confirm(`Are you sure you want to ${newStatus.toLowerCase()} "${notification.name}"?`)) {
-      setNotifications(prev => prev.map(n => 
-        n.id === notification.id ? { ...n, status: newStatus } : n
-      ))
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notification.id ? { ...n, status: newStatus } : n))
+      )
     }
   }
 
   const handleEditNotification = (notification) => {
-    console.log('Edit notification:', notification)
-    // Navigate to edit notification or open edit modal
+    setEditingItem(notification)
+    setShowFormModal(true)
+  }
+
+  const handleNewNotification = () => {
+    setEditingItem(null)
+    setShowFormModal(true)
+  }
+
+  const handleCreateNotification = (formData) => {
+    if (editingItem) {
+      setNotifications((prev) =>
+        prev.map((n) =>
+          n.id === editingItem.id
+            ? { ...n, name: formData.name, type: formData.type, frequency: formData.frequency, description: formData.description }
+            : n
+        )
+      )
+      showToast.success(`${formData.name} updated`)
+    } else {
+      const newNotification = {
+        id: Date.now(),
+        name: formData.name,
+        description: formData.description,
+        type: formData.type,
+        status: 'Active',
+        frequency: formData.frequency,
+        recipients: [],
+        aiOptimization: 'Pending AI analysis',
+        aiConfidence: 80,
+        priority: 'Medium',
+        lastSent: 'Never',
+        nextScheduled: 'As Needed'
+      }
+      setNotifications((prev) => [...prev, newNotification])
+      setStats((prev) => ({
+        ...prev,
+        totalNotifications: (prev.totalNotifications ?? 0) + 1,
+        active: (prev.active ?? 0) + 1
+      }))
+      showToast.success(`${formData.name} created`)
+    }
+    setShowFormModal(false)
+    setEditingItem(null)
   }
 
   const handleDeleteNotification = (notification) => {
     if (window.confirm(`Are you sure you want to delete notification "${notification.name}"?`)) {
-      setNotifications(prev => prev.filter(n => n.id !== notification.id))
+      setNotifications((prev) => prev.filter((n) => n.id !== notification.id))
     }
   }
 
-  // Column definitions for DataTable
+  const handleGlobalPrefChange = (field, value) => {
+    setGlobalPrefs((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handleSaveGlobalPrefs = () => {
+    saveAdminConfig(GLOBAL_PREFS_KEY, globalPrefs)
+    setShowGlobalSettings(false)
+    showToast.success('Global notification preferences saved')
+  }
+
   const columns = [
     {
       key: 'name',
@@ -189,8 +277,8 @@ const NotificationSettings = () => {
       width: '10%',
       render: (value) => {
         const typeIcons = {
-          'Email': Mail,
-          'SMS': MessageSquare,
+          Email: Mail,
+          SMS: MessageSquare,
           'In-App': Bell
         }
         const Icon = typeIcons[value] || Bell
@@ -212,9 +300,7 @@ const NotificationSettings = () => {
       key: 'frequency',
       label: 'Frequency',
       width: '12%',
-      render: (value) => (
-        <Badge bg="secondary">{value}</Badge>
-      )
+      render: (value) => <Badge bg="secondary">{value}</Badge>
     },
     {
       key: 'priority',
@@ -242,13 +328,13 @@ const NotificationSettings = () => {
       width: '12%',
       render: (value) => {
         if (value === 'Never') return <span className="text-muted">Never</span>
-        const date = new Date(value);
+        const date = new Date(value)
         return date.toLocaleDateString('en-US', {
           month: '2-digit',
           day: '2-digit',
           hour: '2-digit',
           minute: '2-digit'
-        });
+        })
       }
     },
     {
@@ -259,33 +345,33 @@ const NotificationSettings = () => {
         if (value === 'As Needed' || value === 'Immediate') {
           return <Badge bg="warning">{value}</Badge>
         }
-        const date = new Date(value);
+        const date = new Date(value)
         return date.toLocaleDateString('en-US', {
           month: '2-digit',
           day: '2-digit',
           hour: '2-digit',
           minute: '2-digit'
-        });
+        })
       }
     }
   ]
 
   const getStatusBadge = (status) => {
     const variants = {
-      'Active': 'success',
-      'Inactive': 'secondary',
-      'Pending': 'warning',
-      'Error': 'danger'
+      Active: 'success',
+      Inactive: 'secondary',
+      Pending: 'warning',
+      Error: 'danger'
     }
     return <Badge bg={variants[status] || 'secondary'}>{status}</Badge>
   }
 
   const getPriorityBadge = (priority) => {
     const variants = {
-      'Critical': 'danger',
-      'High': 'warning',
-      'Medium': 'primary',
-      'Low': 'secondary'
+      Critical: 'danger',
+      High: 'warning',
+      Medium: 'primary',
+      Low: 'secondary'
     }
     return <Badge bg={variants[priority] || 'secondary'}>{priority}</Badge>
   }
@@ -388,11 +474,11 @@ const NotificationSettings = () => {
         tableTitle="Notification configuration"
         tableActions={
           <>
-            <Button variant="primary" className="me-2">
+            <Button variant="primary" className="me-2" onClick={handleNewNotification}>
               <Plus size={16} className="me-2" />
               New Notification
             </Button>
-            <Button variant="outline-secondary">
+            <Button variant="outline-secondary" onClick={() => setShowGlobalSettings(true)}>
               <Settings size={16} className="me-2" />
               Settings
             </Button>
@@ -426,80 +512,232 @@ const NotificationSettings = () => {
         />
       </ExecutiveCommandCenter>
 
-        <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
-          <Modal.Header closeButton>
-            <Modal.Title>
-              <Bell size={20} className="me-2" />
-              Notification Details - {selectedNotification?.name}
-            </Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            {selectedNotification && (
-              <div className="notification-details">
-                <Row>
-                  <Col md={6}>
-                    <h6>Basic Information</h6>
-                    <p><strong>Type:</strong> {selectedNotification.type}</p>
-                    <p><strong>Frequency:</strong> {selectedNotification.frequency}</p>
-                    <p><strong>Status:</strong> {selectedNotification.status}</p>
-                    <p><strong>Priority:</strong> {selectedNotification.priority}</p>
-                    <p><strong>Recipients:</strong> {selectedNotification.recipients.length}</p>
-                  </Col>
-                  <Col md={6}>
-                    <h6>Schedule Information</h6>
-                    <p><strong>Last Sent:</strong> {selectedNotification.lastSent}</p>
-                    <p><strong>Next Scheduled:</strong> {selectedNotification.nextScheduled}</p>
-                    <p><strong>AI Confidence:</strong> {selectedNotification.aiConfidence}%</p>
-                  </Col>
-                </Row>
-                <hr />
-                <Row>
-                  <Col>
-                    <h6>Description</h6>
-                    <p>{selectedNotification.description}</p>
-                  </Col>
-                </Row>
-                <hr />
-                <Row>
-                  <Col>
-                    <h6>Recipients</h6>
-                    <ul className="recipients-list">
-                      {selectedNotification.recipients.map((recipient, index) => (
-                        <li key={index} className="recipient-item">
-                          <CheckCircle size={14} className="me-2 text-success" />
-                          {recipient}
-                        </li>
-                      ))}
-                    </ul>
-                  </Col>
-                </Row>
-                <hr />
-                <Row>
-                  <Col>
-                    <h6>AI Assessment & Optimization</h6>
-                    <Alert variant="info">
-                      <Brain size={16} className="me-2" />
-                      <strong>Optimization:</strong> {selectedNotification.aiOptimization}
-                    </Alert>
-                    <Alert variant="success">
-                      <CheckCircle size={16} className="me-2" />
-                      <strong>Confidence Level:</strong> {selectedNotification.aiConfidence}% based on recipient behavior and optimal timing analysis
-                    </Alert>
-                  </Col>
-                </Row>
-              </div>
-            )}
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowModal(false)}>
-              Close
-            </Button>
-            <Button variant="primary">
-              <Edit size={16} className="me-2" />
-              Edit Notification
-            </Button>
-          </Modal.Footer>
-        </Modal>
+      <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <Bell size={20} className="me-2" />
+            Notification Details - {selectedNotification?.name}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedNotification && (
+            <div className="notification-details">
+              <Row>
+                <Col md={6}>
+                  <h6>Basic Information</h6>
+                  <p>
+                    <strong>Type:</strong> {selectedNotification.type}
+                  </p>
+                  <p>
+                    <strong>Frequency:</strong> {selectedNotification.frequency}
+                  </p>
+                  <p>
+                    <strong>Status:</strong> {selectedNotification.status}
+                  </p>
+                  <p>
+                    <strong>Priority:</strong> {selectedNotification.priority}
+                  </p>
+                  <p>
+                    <strong>Recipients:</strong> {selectedNotification.recipients.length}
+                  </p>
+                </Col>
+                <Col md={6}>
+                  <h6>Schedule Information</h6>
+                  <p>
+                    <strong>Last Sent:</strong> {selectedNotification.lastSent}
+                  </p>
+                  <p>
+                    <strong>Next Scheduled:</strong> {selectedNotification.nextScheduled}
+                  </p>
+                  <p>
+                    <strong>AI Confidence:</strong> {selectedNotification.aiConfidence}%
+                  </p>
+                </Col>
+              </Row>
+              <hr />
+              <Row>
+                <Col>
+                  <h6>Description</h6>
+                  <p>{selectedNotification.description}</p>
+                </Col>
+              </Row>
+              <hr />
+              <Row>
+                <Col>
+                  <h6>Recipients</h6>
+                  <ul className="recipients-list">
+                    {selectedNotification.recipients.map((recipient, index) => (
+                      <li key={index} className="recipient-item">
+                        <CheckCircle size={14} className="me-2 text-success" />
+                        {recipient}
+                      </li>
+                    ))}
+                  </ul>
+                </Col>
+              </Row>
+              <hr />
+              <Row>
+                <Col>
+                  <h6>AI Assessment & Optimization</h6>
+                  <Alert variant="info">
+                    <Brain size={16} className="me-2" />
+                    <strong>Optimization:</strong> {selectedNotification.aiOptimization}
+                  </Alert>
+                  <Alert variant="success">
+                    <CheckCircle size={16} className="me-2" />
+                    <strong>Confidence Level:</strong> {selectedNotification.aiConfidence}% based on
+                    recipient behavior and optimal timing analysis
+                  </Alert>
+                </Col>
+              </Row>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowModal(false)}>
+            Close
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => {
+              setShowModal(false)
+              handleEditNotification(selectedNotification)
+            }}
+          >
+            <Edit size={16} className="me-2" />
+            Edit Notification
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <AdminWorkspaceModal
+        show={showFormModal}
+        onHide={() => {
+          setShowFormModal(false)
+          setEditingItem(null)
+        }}
+        title={editingItem ? `Edit Notification — ${editingItem.name}` : 'New Notification'}
+        description={
+          editingItem
+            ? 'Update notification channel and delivery settings.'
+            : 'Create a new notification program.'
+        }
+        submitLabel={editingItem ? 'Save changes' : 'Create notification'}
+        fields={NOTIFICATION_FORM_FIELDS}
+        initialValues={
+          editingItem
+            ? {
+                name: editingItem.name,
+                type: editingItem.type,
+                frequency: editingItem.frequency,
+                description: editingItem.description
+              }
+            : {}
+        }
+        onSubmit={handleCreateNotification}
+      />
+
+      <Modal show={showGlobalSettings} onHide={() => setShowGlobalSettings(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <Settings size={20} className="me-2" />
+            Global Notification Preferences
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Row className="g-3">
+            <Col md={6}>
+              <Form.Check
+                type="switch"
+                id="pref-email"
+                label="Email notifications enabled"
+                checked={globalPrefs.emailEnabled}
+                onChange={(e) => handleGlobalPrefChange('emailEnabled', e.target.checked)}
+              />
+            </Col>
+            <Col md={6}>
+              <Form.Check
+                type="switch"
+                id="pref-sms"
+                label="SMS notifications enabled"
+                checked={globalPrefs.smsEnabled}
+                onChange={(e) => handleGlobalPrefChange('smsEnabled', e.target.checked)}
+              />
+            </Col>
+            <Col md={6}>
+              <Form.Check
+                type="switch"
+                id="pref-inapp"
+                label="In-app notifications enabled"
+                checked={globalPrefs.inAppEnabled}
+                onChange={(e) => handleGlobalPrefChange('inAppEnabled', e.target.checked)}
+              />
+            </Col>
+            <Col md={6}>
+              <Form.Check
+                type="switch"
+                id="pref-quiet"
+                label="Quiet hours enabled"
+                checked={globalPrefs.quietHoursEnabled}
+                onChange={(e) => handleGlobalPrefChange('quietHoursEnabled', e.target.checked)}
+              />
+            </Col>
+            <Col md={6}>
+              <Form.Group>
+                <Form.Label>Quiet hours start</Form.Label>
+                <Form.Control
+                  type="time"
+                  value={globalPrefs.quietHoursStart}
+                  disabled={!globalPrefs.quietHoursEnabled}
+                  onChange={(e) => handleGlobalPrefChange('quietHoursStart', e.target.value)}
+                />
+              </Form.Group>
+            </Col>
+            <Col md={6}>
+              <Form.Group>
+                <Form.Label>Quiet hours end</Form.Label>
+                <Form.Control
+                  type="time"
+                  value={globalPrefs.quietHoursEnd}
+                  disabled={!globalPrefs.quietHoursEnabled}
+                  onChange={(e) => handleGlobalPrefChange('quietHoursEnd', e.target.value)}
+                />
+              </Form.Group>
+            </Col>
+            <Col md={6}>
+              <Form.Group>
+                <Form.Label>Default sender email</Form.Label>
+                <Form.Control
+                  type="email"
+                  value={globalPrefs.defaultSenderEmail}
+                  onChange={(e) => handleGlobalPrefChange('defaultSenderEmail', e.target.value)}
+                />
+              </Form.Group>
+            </Col>
+            <Col md={6}>
+              <Form.Group>
+                <Form.Label>Delivery mode</Form.Label>
+                <Form.Select
+                  value={globalPrefs.digestMode}
+                  onChange={(e) => handleGlobalPrefChange('digestMode', e.target.value)}
+                >
+                  <option value="immediate">Immediate</option>
+                  <option value="hourly">Hourly digest</option>
+                  <option value="daily">Daily digest</option>
+                </Form.Select>
+              </Form.Group>
+            </Col>
+          </Row>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" type="button" onClick={() => setShowGlobalSettings(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" type="button" onClick={handleSaveGlobalPrefs}>
+            Save preferences
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </>
   )
 }

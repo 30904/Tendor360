@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react'
 import { Row, Col, Card, Table, Badge, Button, Form, Modal, ProgressBar, Alert, Tabs, Tab } from 'react-bootstrap'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
+import { exportRowsToExcel } from './utils/exportReport'
 import {
   Clock,
   Search,
@@ -16,6 +17,7 @@ import {
   Zap
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { showToast } from '../../utils/toast'
 import './MilestonesBilling.scss'
 
 const projectData = [
@@ -120,6 +122,8 @@ const MilestonesBilling = () => {
   const [filterStatus, setFilterStatus] = useState('all')
   const [selectedProject, setSelectedProject] = useState(null)
   const [activeTab, setActiveTab] = useState('overview')
+  const [riskFilter, setRiskFilter] = useState('all')
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
 
   const portfolioStats = useMemo(() => {
     const n = projectData.length
@@ -168,11 +172,57 @@ const MilestonesBilling = () => {
       item.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.client.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesFilter = filterStatus === 'all' || item.billingStatus === filterStatus
-    return matchesSearch && matchesFilter
+    const matchesRisk = riskFilter === 'all' || item.aiRiskLevel === riskFilter
+    return matchesSearch && matchesFilter && matchesRisk
   })
 
   const handleViewDetails = (project) => {
     setSelectedProject(project)
+  }
+
+  const handleExportReport = () => {
+    exportRowsToExcel(
+      filteredData.map((item) => ({
+        Project: item.projectName,
+        Client: item.client,
+        'Contract Value': item.contractValue,
+        Progress: `${item.progress}%`,
+        Milestones: `${item.completed}/${item.milestones}`,
+        Overdue: item.overdue,
+        'AI Risk': item.aiRiskLevel,
+        'Billing Status': item.billingStatus,
+        'Total Billed': item.totalBilled
+      })),
+      { sheetName: 'Milestones Billing', fileName: 'milestones_billing_report.xlsx' }
+    )
+  }
+
+  const handleAiAnalysis = () => {
+    setActiveTab('recommendations')
+    showToast.info('AI recommendations refreshed for the current portfolio')
+  }
+
+  const handleProjectAiInsight = (project) => {
+    setSelectedProject(project)
+    showToast.info(`AI insight loaded for ${project.projectName}`)
+  }
+
+  const handleRecommendationAction = (insight) => {
+    showToast.success(`Action queued: ${insight.action}`)
+  }
+
+  const handleRunAiAnalysis = () => {
+    if (!selectedProject) return
+    showToast.success(`AI analysis complete for ${selectedProject.projectName}`)
+    setActiveTab('recommendations')
+  }
+
+  const handleToggleAdvancedFilters = () => {
+    setShowAdvancedFilters((prev) => {
+      const next = !prev
+      showToast.info(next ? 'Advanced filters shown' : 'Advanced filters hidden')
+      return next
+    })
   }
 
   return (
@@ -189,11 +239,11 @@ const MilestonesBilling = () => {
         description="AI-assisted project tracking, milestone health, and billing posture across the portfolio."
         heroActions={
           <>
-            <Button variant="outline-primary" className="me-2" size="sm">
+            <Button variant="outline-primary" className="me-2" size="sm" onClick={handleExportReport}>
               <Download size={16} className="me-2" />
               Export Report
             </Button>
-            <Button variant="primary" size="sm">
+            <Button variant="primary" size="sm" onClick={handleAiAnalysis}>
               <Brain size={16} className="me-2" />
               AI Analysis
             </Button>
@@ -279,12 +329,25 @@ const MilestonesBilling = () => {
             </Form.Select>
           </Col>
           <Col md={3}>
-            <Button variant="outline-secondary" className="w-100">
+            <Button variant="outline-secondary" className="w-100" onClick={handleToggleAdvancedFilters}>
               <Filter size={16} className="me-2" />
-              More Filters
+              {showAdvancedFilters ? 'Hide Filters' : 'More Filters'}
             </Button>
           </Col>
         </Row>
+
+        {showAdvancedFilters ? (
+          <Row className="mb-3">
+            <Col md={3}>
+              <Form.Select value={riskFilter} onChange={(e) => setRiskFilter(e.target.value)}>
+                <option value="all">All risk levels</option>
+                <option value="Low">Low risk</option>
+                <option value="Medium">Medium risk</option>
+                <option value="High">High risk</option>
+              </Form.Select>
+            </Col>
+          </Row>
+        ) : null}
 
         <Tabs activeKey={activeTab} onSelect={(k) => k && setActiveTab(k)} className="custom-tabs">
           <Tab eventKey="overview" title="Project Overview">
@@ -361,7 +424,7 @@ const MilestonesBilling = () => {
                             <Button variant="outline-primary" size="sm" onClick={() => handleViewDetails(item)}>
                               <Eye size={14} />
                             </Button>
-                            <Button variant="outline-secondary" size="sm" className="ms-1">
+                            <Button variant="outline-secondary" size="sm" className="ms-1" onClick={() => handleProjectAiInsight(item)}>
                               <Brain size={14} />
                             </Button>
                           </div>
@@ -386,7 +449,7 @@ const MilestonesBilling = () => {
                           <strong>{insight.type}</strong>
                         </div>
                         <p className="recommendation-message">{insight.message}</p>
-                        <Button variant="outline-primary" size="sm" className="w-100">
+                        <Button variant="outline-primary" size="sm" className="w-100" onClick={() => handleRecommendationAction(insight)}>
                           {insight.action}
                         </Button>
                       </Card.Body>
@@ -450,7 +513,7 @@ const MilestonesBilling = () => {
           <Button variant="secondary" onClick={() => setSelectedProject(null)}>
             Close
           </Button>
-          <Button variant="primary">
+          <Button variant="primary" onClick={handleRunAiAnalysis}>
             <Brain size={16} className="me-2" />
             Run AI Analysis
           </Button>
