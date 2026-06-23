@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const DocumentAnalysis = require('../models/documentAnalysis');
-const documentAIService = require('../services/documentAI');
+const extractionPipeline = require('../../modules/document-intelligence/services/ExtractionPipeline');
+const ClauseExtraction = require('../../modules/document-intelligence/models/ClauseExtraction');
 const aiConfig = require('../config/aiConfig');
 const path = require('path');
 const fs = require('fs').promises;
@@ -319,7 +320,6 @@ const processDocumentAnalysis = async (analysisId, documentId, analysisType) => 
   const startTime = Date.now();
   
   try {
-    // Get document information (you'll need to implement this based on your Document model)
     const Document = require('../../models/Document');
     const document = await Document.findById(documentId);
     
@@ -327,32 +327,91 @@ const processDocumentAnalysis = async (analysisId, documentId, analysisType) => 
       throw new Error('Document not found');
     }
 
-    // Construct file path
-    const filePath = path.join(process.env.UPLOAD_PATH || './uploads', document.filePath);
-    
-    // Check if file exists
-    try {
-      await fs.access(filePath);
-    } catch (error) {
-      throw new Error('Document file not found on server');
-    }
+    // Perform extraction using the unified extraction pipeline
+    const extraction = await extractionPipeline.run(document.companyId, document._id, {
+      pipeline: 'metadata'
+    });
 
-    // Perform AI analysis
-    const analysisResult = await documentAIService.analyzeDocument(filePath, document.fileType);
-    
+    // Retrieve updated document and extracted clauses
+    const updatedDocument = await Document.findById(documentId);
+    const aiExtraction = updatedDocument.aiExtraction || {};
+    const extractedData = aiExtraction.extractedData || {};
+    const clauses = await ClauseExtraction.find({ extractionId: extraction._id });
+
+    // Map extracted data to legacy DocumentAnalysis structure
+    const technical_requirements = (extractedData.requirements || []).map(req => ({
+      requirement: req,
+      category: 'technical',
+      mandatory: true,
+      description: req
+    }));
+
+    const high_risks = clauses.filter(c => c.riskLevel === 'high').map(c => ({
+      risk: c.text,
+      category: c.clauseType,
+      description: c.text,
+      mitigation: 'Review clause conditions with legal team.',
+      impact: 'Potential delivery/liability impact.'
+    }));
+    const medium_risks = clauses.filter(c => c.riskLevel === 'medium').map(c => ({
+      risk: c.text,
+      category: c.clauseType,
+      description: c.text,
+      mitigation: 'Review clause conditions.',
+      impact: 'Standard contract risk.'
+    }));
+    const low_risks = clauses.filter(c => c.riskLevel === 'low').map(c => ({
+      risk: c.text,
+      category: c.clauseType,
+      description: c.text,
+      mitigation: 'Monitor compliance.',
+      impact: 'Minimal risk.'
+    }));
+
+    const key_dates = extractedData.deadline ? [{
+      date: new Date(extractedData.deadline),
+      description: 'Tender Submission Deadline',
+      type: 'deadline',
+      importance: 'high'
+    }] : [];
+
     const processingTime = Date.now() - startTime;
 
     // Update analysis with results
     await DocumentAnalysis.findByIdAndUpdate(analysisId, {
       status: 'completed',
-      documentInfo: analysisResult.document_info,
-      requirements: analysisResult.requirements,
-      risks: analysisResult.risks,
-      summary: analysisResult.summary,
-      dates: analysisResult.dates,
-      confidenceScore: analysisResult.confidence_score,
+      documentInfo: {
+        filePath: updatedDocument.storage?.path || updatedDocument.filePath,
+        fileType: updatedDocument.storage?.mimeType || updatedDocument.fileType,
+        textLength: aiExtraction.rawText?.length || 0,
+        analyzedAt: new Date()
+      },
+      requirements: {
+        technical_requirements,
+        commercial_requirements: [],
+        compliance_requirements: [],
+        timeline_requirements: [],
+        summary: aiExtraction.summary || 'Extraction completed.'
+      },
+      risks: {
+        high_risks,
+        medium_risks,
+        low_risks,
+        overall_risk_score: high_risks.length > 0 ? 8 : (medium_risks.length > 0 ? 5 : 2),
+        risk_summary: high_risks.length > 0 ? 'High risk clauses identified.' : 'Standard operational risks.'
+      },
+      summary: {
+        summary: aiExtraction.summary || 'Extraction completed.',
+        generated_at: new Date(),
+        word_count: (aiExtraction.summary || '').split(/\s+/).length
+      },
+      dates: {
+        key_dates,
+        timeline_summary: key_dates.length > 0 ? 'Deadline identified.' : 'No critical deadlines identified.'
+      },
+      confidenceScore: (aiExtraction.confidence || 75) / 100,
       processingTime,
-      aiModel: aiConfig.gemini.model
+      aiModel: 'Unified Pipeline'
     });
 
     console.log(`AI analysis completed for document ${documentId} in ${processingTime}ms`);

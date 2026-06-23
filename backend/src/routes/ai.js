@@ -48,44 +48,4 @@ router.post('/analysis/:analysisId/feedback', aiController.provideFeedback);
  */
 router.delete('/analysis/:analysisId', aiController.deleteAnalysis);
 
-// Legacy AI routes for backward compatibility
-router.post('/match-tender', requireAuth, async (req, res) => {
-  try {
-    res.json({
-      data: { 
-        matchScore: 85,
-        insights: ['Strong technical capability match', 'Good financial standing'],
-        recommendations: ['Consider bidding', 'Focus on technical differentiation']
-      },
-      message: 'AI analysis completed successfully'
-    });
-  } catch (error) {
-    res.status(500).json({
-      error: 'Failed to analyze tender',
-      message: error.message
-    });
-  }
-});
-
-router.post('/suggest-documents', requireAuth, async (req, res) => {
-  try {
-    res.json({
-      data: {
-        suggestedDocs: [
-          'Technical specifications',
-          'Financial statements',
-          'Quality certifications',
-          'Past performance records'
-        ]
-      },
-      message: 'Document suggestions generated successfully'
-    });
-  } catch (error) {
-    res.status(500).json({
-      error: 'Failed to generate document suggestions',
-      message: error.message
-    });
-  }
-});
-
 module.exports = router;

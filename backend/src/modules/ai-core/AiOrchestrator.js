@@ -33,7 +33,7 @@ class AiOrchestrator {
 
   async summarize(payload) {
     const forceDeterministic =
-      process.env.AI_DEMO_MODE === 'deterministic' || process.env.NODE_ENV === 'development';
+      process.env.AI_DEMO_MODE === 'deterministic';
 
     if (forceDeterministic) {
       const result = await PROVIDERS.heuristic.summarize(payload);
