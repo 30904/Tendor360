@@ -54,8 +54,8 @@ const BidNoBid = () => {
 
   const availableTenders = useMemo(() => {
     if (!tenders) return [];
-    const evaluatedTenderIds = new Set(evaluations?.map(e => e.tenderId?._id || e.tenderId) || []);
-    return tenders.filter(t => !evaluatedTenderIds.has(t._id));
+    const evaluatedTenderIds = new Set(evaluations?.map(e => e.tenderId?._id || e.tenderId?.id || e.tenderId) || []);
+    return tenders.filter(t => !evaluatedTenderIds.has(t.id || t._id));
   }, [tenders, evaluations]);
 
   const handleEditDecision = (decision) => {
@@ -83,14 +83,15 @@ const BidNoBid = () => {
     try {
       // Set a loading toast or state if we want, but for now just await
       const response = await dispatch(predictAIScore(tenderSelect.value)).unwrap();
-      if (response && response.prediction) {
+      const prediction = response?.data?.prediction || response?.prediction;
+      if (prediction) {
         setPrefillSnapshot((prev) => ({
           ...prev,
           tenderId: tenderSelect.value, // preserve current selection
           decision: 'BID', 
-          confidenceLevel: response.prediction.confidenceLevel,
-          riskLevel: response.prediction.riskLevel,
-          decisionReason: response.prediction.decisionReason
+          confidenceLevel: prediction.confidenceLevel,
+          riskLevel: prediction.riskLevel,
+          decisionReason: prediction.decisionReason
         }));
         setModalFormKey((k) => k + 1);
       }
@@ -480,12 +481,12 @@ const BidNoBid = () => {
                     <Form.Label>Select Tender</Form.Label>
                     <Form.Select 
                       name="tenderId" 
-                      defaultValue={formSeed.tenderId?._id || formSeed.tenderId || ''}
+                      defaultValue={formSeed.tenderId?._id || formSeed.tenderId?.id || formSeed.tenderId || ''}
                       required
                     >
                       <option value="">-- Select a Tender --</option>
                       {availableTenders?.map(t => (
-                        <option key={t._id} value={t._id}>{t.title} ({t.organization})</option>
+                        <option key={t.id || t._id} value={t.id || t._id}>{t.title} ({t.organization})</option>
                       ))}
                     </Form.Select>
                   </Form.Group>

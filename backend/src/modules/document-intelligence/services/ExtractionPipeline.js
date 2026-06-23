@@ -15,11 +15,20 @@ async function readDocumentText(document) {
     throw new Error('Document storage path is missing');
   }
 
-  const filePath = path.isAbsolute(relativePath)
-    ? relativePath
-    : path.join(__dirname, '../../../../uploads', relativePath);
+  let filePath;
+  if (path.isAbsolute(relativePath)) {
+    filePath = relativePath;
+  } else {
+    const backendRoot = path.join(__dirname, '../../../../');
+    const normalizedPath = relativePath.replace(/\\/g, '/');
+    if (normalizedPath.startsWith('uploads/')) {
+      filePath = path.join(backendRoot, relativePath);
+    } else {
+      filePath = path.join(backendRoot, 'uploads', relativePath);
+    }
+  }
   if (!fs.existsSync(filePath)) {
-    throw new Error('Document file not found on disk');
+    throw new Error(`Document file not found on disk at resolved path: ${filePath}`);
   }
 
   const buffer = fs.readFileSync(filePath);
