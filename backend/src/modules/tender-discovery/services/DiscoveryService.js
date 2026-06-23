@@ -7,6 +7,12 @@ const TenderImportBatch = require('../models/TenderImportBatch');
 const { getConnector } = require('../../../services/connectors');
 const { resolveConnectorType } = require('../utils/resolveConnectorType');
 const { buildConnectorConfigFromSource } = require('../utils/connectorConfigBuilder');
+const {
+  isDemoOpportunity,
+  isDemoImportAllowed,
+  getDemoImportPolicyHint,
+  getDemoSkipReason
+} = require('../utils/discoveryDemoPolicy');
 const { buildOpportunityContentHash } = require('../utils/opportunityContentHash');
 const { applyMetadataToTender } = require('./DiscoveryMetadataService');
 const attachmentHarvestService = require('./AttachmentHarvestService');
@@ -77,14 +83,12 @@ async function importOpportunities({
   const processedOpportunities = [];
 
   for (const opportunity of opportunities) {
-    const isDemoOpportunity =
-      opportunity.metadata?.isDemo === true ||
-      String(opportunity.externalId || '').startsWith('DEMO-');
-
-    if (isDemoOpportunity && !connectorConfig?.demoMode) {
+    if (isDemoOpportunity(opportunity) && !isDemoImportAllowed(connectorConfig)) {
       demoSkipped += 1;
       continue;
     }
+
+    const opportunityIsDemo = isDemoOpportunity(opportunity);
 
     try {
       const contentHash = buildOpportunityContentHash(opportunity);
@@ -180,7 +184,8 @@ async function importOpportunities({
           importedAt: new Date(),
           contentHash,
           changeStatus: 'new',
-          externalUpdatedAt: opportunity.externalUpdatedAt || null
+          externalUpdatedAt: opportunity.externalUpdatedAt || null,
+          isDemo: opportunityIsDemo
         }
       });
 
@@ -257,8 +262,8 @@ async function importOpportunities({
     await appendLog(
       companyId,
       job._id,
-      'warning',
-      `Skipped ${demoSkipped} demo opportunity(ies) — connector is not in explicit demo mode`
+      'warn',
+      `Skipped ${demoSkipped} demo opportunity(ies) — ${getDemoSkipReason(connectorConfig)}`
     );
   }
 
@@ -402,6 +407,15 @@ class DiscoveryService {
         connectorConfig,
         samFallbackConfig
       });
+
+      if (result.isDemo && importStats.demoSkipped > 0) {
+        await appendLog(
+          job.companyId,
+          job._id,
+          'warn',
+          `GovWin demo preview only — ${importStats.demoSkipped} sample opportunity(ies) not imported. ${getDemoImportPolicyHint()}`
+        );
+      }
 
       job.incrementalCursor = result.nextCursor || job.incrementalCursor;
       await job.save();

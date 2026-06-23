@@ -55,7 +55,7 @@ class GovWinConnector extends BaseConnector {
         opportunities: this.buildDemoOpportunities(config, limit),
         nextCursor: null,
         isDemo: true,
-        logs: [{ level: 'info', message: 'GovWin explicit demo mode — API bypassed (demo data only)' }]
+        logs: [{ level: 'info', message: 'GovWin explicit demo mode — API bypassed (preview data; import gated by DISCOVERY_DEMO_FALLBACK / NODE_ENV)' }]
       };
     }
 
@@ -137,9 +137,10 @@ class GovWinConnector extends BaseConnector {
     if (this.isExplicitDemoMode(config)) {
       const result = await this.discover({ config, limit: 1 });
       return {
-        ok: true,
+        ok: false,
+        verified: false,
         isDemo: true,
-        message: `GovWin demo mode — preview count: ${result.opportunities.length} (no live API call).`,
+        message: `Demo preview only — ${result.opportunities.length} sample opportunity(ies). Live GovWin API was not tested.`,
         sampleCount: result.opportunities.length
       };
     }
@@ -148,6 +149,8 @@ class GovWinConnector extends BaseConnector {
     const result = await this.discover({ config, limit: 1 });
     return {
       ok: true,
+      verified: true,
+      isDemo: false,
       message: `GovWin API reachable. Preview count: ${result.opportunities.length}.`,
       sampleCount: result.opportunities.length
     };

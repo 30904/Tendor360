@@ -44,7 +44,8 @@ const tenderDiscoveryJobSchema = new mongoose.Schema(
       attachmentsDownloaded: { type: Number, default: 0 },
       attachmentsFailed: { type: Number, default: 0 },
       samFallbackUsed: { type: Number, default: 0 },
-      failed: { type: Number, default: 0 }
+      failed: { type: Number, default: 0 },
+      demoSkipped: { type: Number, default: 0 }
     },
     lookbackHours: { type: Number, default: 24 },
     errorMessage: String,

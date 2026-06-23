@@ -121,7 +121,7 @@ const seedEvaluations = async () => {
             weightedScore: 78.5,
             decision: 'BID',
             decisionReason: 'Strong technical capabilities with good financial standing. Recommended for shortlisting.',
-            confidenceLevel: 'HIGH',
+            confidenceLevel: 88,
             riskLevel: 'LOW',
             priority: 'HIGH',
             status: 'APPROVED',

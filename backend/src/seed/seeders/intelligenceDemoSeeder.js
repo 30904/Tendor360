@@ -502,12 +502,15 @@ async function seedIntelligenceDemo() {
       }))
     );
 
-    await AutomationFailure.create({
-      companyId: company._id,
-      jobId: automationJobs[2]._id,
-      errorMessage: 'Email ingestion connector is not configured',
-      retryable: true
-    });
+    const failedJob = automationJobs.find((job) => job.jobType === 'document_extraction');
+    if (failedJob) {
+      await AutomationFailure.create({
+        companyId: company._id,
+        jobId: failedJob._id,
+        errorMessage: 'Email ingestion connector is not configured',
+        retryable: true
+      });
+    }
 
     const catalogKeys = ['sam_gov', 'govwin', 'generic_api', 'web_scrape', 'email', 'manual'];
     const connectors = await IntegrationConnector.insertMany(

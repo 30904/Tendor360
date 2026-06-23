@@ -56,8 +56,9 @@ const testConnection = async (req, res) => {
 
     if (typeof connector.testConnection === 'function') {
       const testResult = await connector.testConnection({ config });
+      const passed = testResult.ok !== false;
       return res.json({
-        success: true,
+        success: passed,
         data: { connectorType, ...testResult },
         message: testResult.message
       });
@@ -116,13 +117,19 @@ const runDiscoveryNow = async (req, res) => {
     const freshJob = await TenderDiscoveryJob.findById(completedJob._id).lean();
 
     const updatedSource = await TenderSource.findById(source._id);
+    const imported = freshJob?.stats?.imported ?? 0;
+    const demoSkipped = freshJob?.stats?.demoSkipped ?? 0;
+    let message = `Discovery run completed. Imported ${imported} opportunity(ies).`;
+    if (demoSkipped > 0 && imported === 0) {
+      message = `Discovery preview completed. ${demoSkipped} demo opportunity(ies) were not imported (enable DISCOVERY_DEMO_FALLBACK or use development mode to import demo data).`;
+    }
     res.json({
       success: true,
       data: {
         source: maskSourceCredentials(updatedSource),
         job: freshJob
       },
-      message: `Discovery run completed. Imported ${freshJob?.stats?.imported ?? 0} opportunity(ies).`
+      message
     });
   } catch (error) {
     console.error('Run discovery error:', error);

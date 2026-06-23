@@ -286,8 +286,16 @@ const DiscoveryConnectors = () => {
       const res = await discoveryConnectorsAPI.testConnection(
         editingId ? { sourceId: editingId, ...payload } : payload
       )
-      if (res.success) showToast.success(res.message || 'Connection test passed')
-      else showToast.error(res.message || 'Connection test failed')
+      const data = res.data || {}
+      if (data.isDemo && data.ok === false) {
+        showToast.warning(
+          res.message || 'Demo preview only — live GovWin API was not verified.'
+        )
+      } else if (res.success && data.ok !== false) {
+        showToast.success(res.message || 'Connection test passed')
+      } else {
+        showToast.error(res.message || 'Connection test failed')
+      }
     } catch (err) {
       showToast.error(err.response?.data?.message || 'Connection test failed')
     } finally {
@@ -705,13 +713,20 @@ const DiscoveryConnectors = () => {
               onChange={(e) => updateField('discoveryConfig.scheduleEnabled', e.target.checked)}
             />
             {form.connectorTemplate === 'govwin' && (
-              <Form.Check
-                type="switch"
-                className="mb-3"
-                label="GovWin demo mode (curated sample opportunities — no live API call)"
-                checked={form.discoveryConfig.demoMode === true}
-                onChange={(e) => updateField('discoveryConfig.demoMode', e.target.checked)}
-              />
+              <>
+                <Form.Check
+                  type="switch"
+                  className="mb-1"
+                  label="GovWin demo mode (curated sample opportunities — no live API call)"
+                  checked={form.discoveryConfig.demoMode === true}
+                  onChange={(e) => updateField('discoveryConfig.demoMode', e.target.checked)}
+                />
+                <Form.Text className="text-muted d-block mb-3">
+                  Demo runs preview sample bids only. Importing DEMO-* tenders requires{' '}
+                  <code>DISCOVERY_DEMO_FALLBACK=true</code> or <code>NODE_ENV=development</code> on the
+                  backend.
+                </Form.Text>
+              </>
             )}
 
             {isApiMode && (

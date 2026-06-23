@@ -186,7 +186,8 @@ const tenderSchema = new mongoose.Schema({
       failed: { type: Number, default: 0 },
       samFallbackUsed: { type: Boolean, default: false },
       documentIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Document' }]
-    }
+    },
+    isDemo: { type: Boolean, default: false }
   },
   intelligence: {
     metadata: mongoose.Schema.Types.Mixed,
