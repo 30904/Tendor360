@@ -80,6 +80,11 @@ const documentSchema = new mongoose.Schema({
     size: Number
   },
   
+  sharePointUrl: {
+    type: String,
+    trim: true
+  },
+  
   // Versioning
   version: {
     type: Number,

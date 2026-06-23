@@ -6,6 +6,7 @@ const fs = require('fs');
 const extractionPipeline = require('../modules/document-intelligence/services/ExtractionPipeline');
 const { readDocumentText } = extractionPipeline;
 const aiOrchestrator = require('../modules/ai-core/AiOrchestrator');
+const webhookDispatcher = require('../modules/integrations/services/WebhookDispatcherService');
 
 // Get all documents with filters and pagination
 const getDocuments = catchAsync(async (req, res) => {
@@ -109,6 +110,9 @@ const uploadDocument = catchAsync(async (req, res) => {
 
   const document = await Document.create(documentData);
 
+  // Trigger outbound webhook event
+  webhookDispatcher.triggerEvent(req.companyId, 'document.uploaded', document);
+
   // Auto-process tender documents
   if (document.type === 'TENDER_DOCUMENT') {
     // Queue for AI processing
@@ -135,6 +139,11 @@ const processDocumentWithAI = async (documentId) => {
     await extractionPipeline.run(document.companyId, document._id, {
       pipeline: 'metadata'
     });
+
+    const updatedDoc = await Document.findById(documentId);
+    if (updatedDoc) {
+      webhookDispatcher.triggerEvent(updatedDoc.companyId, 'document.processed', updatedDoc);
+    }
 
     console.log(`✅ Document ${documentId} processed with real unified AI pipeline`);
   } catch (error) {
@@ -237,6 +246,9 @@ const createTenderRecord = catchAsync(async (req, res) => {
   };
   document.status = 'APPROVED';
   await document.save();
+
+  // Trigger outbound webhook event
+  webhookDispatcher.triggerEvent(req.companyId, 'tender.created', tender);
 
   res.status(201).json({
     data: { tender, document },

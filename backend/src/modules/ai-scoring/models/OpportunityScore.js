@@ -35,6 +35,17 @@ const opportunityScoreSchema = new mongoose.Schema(
     },
     rationale: { type: String, trim: true },
     modelProvider: { type: String, trim: true },
+    /**
+     * Tracks how the score was actually produced:
+     *   'ai'          — real AI provider ran successfully
+     *   'heuristic'   — no AI key configured; heuristic was the intended provider
+     *   'ai_fallback' — AI key was present but the API call failed; heuristic stepped in
+     */
+    scoringMethod: {
+      type: String,
+      enum: ['ai', 'heuristic', 'ai_fallback'],
+      default: 'heuristic'
+    },
     isDeleted: { type: Boolean, default: false }
   },
   { timestamps: true, collection: 'OpportunityScore' }

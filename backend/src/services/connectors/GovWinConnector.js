@@ -43,7 +43,9 @@ class GovWinConnector extends BaseConnector {
   }
 
   async discover({ config = {}, cursor, limit = 25 }) {
-    if (process.env.DISCOVERY_DEMO_FALLBACK === 'true' || config.demoMode) {
+    const isDemoMode = process.env.DISCOVERY_DEMO_FALLBACK === 'true' || config.demoMode === true;
+
+    if (isDemoMode) {
       return {
         opportunities: this.buildDemoOpportunities(config, limit),
         nextCursor: null,
@@ -54,13 +56,6 @@ class GovWinConnector extends BaseConnector {
     try {
       this.validateConfig(config);
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        return {
-          opportunities: this.buildDemoOpportunities(config, limit),
-          nextCursor: null,
-          logs: [{ level: 'warning', message: `GovWin config incomplete — demo data used (${error.message})` }]
-        };
-      }
       throw error;
     }
 
@@ -80,18 +75,6 @@ class GovWinConnector extends BaseConnector {
     });
 
     if (response.status >= 400) {
-      if (process.env.NODE_ENV === 'development') {
-        return {
-          opportunities: this.buildDemoOpportunities(config, limit),
-          nextCursor: null,
-          logs: [
-            {
-              level: 'warning',
-              message: `GovWin API ${response.status} — demo opportunities returned for development`
-            }
-          ]
-        };
-      }
       throw new Error(
         response.data?.message || `GovWin request failed with status ${response.status}`
       );
@@ -148,13 +131,6 @@ class GovWinConnector extends BaseConnector {
       ]
     };
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        return {
-          opportunities: this.buildDemoOpportunities(config, limit),
-          nextCursor: null,
-          logs: [{ level: 'warning', message: `GovWin unreachable — demo data (${error.message})` }]
-        };
-      }
       throw error;
     }
   }

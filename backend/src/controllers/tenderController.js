@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Tender = require('../models/Tender');
 const User = require('../models/User');
+const webhookDispatcher = require('../modules/integrations/services/WebhookDispatcherService');
 
 // Get all tenders with filtering, pagination, and search
 const getTenders = async (req, res) => {
@@ -348,6 +349,9 @@ const createTender = async (req, res) => {
       updatedAt: tender.updatedAt
     };
 
+    // Trigger outbound webhook event
+    webhookDispatcher.triggerEvent(req.user.companyId, 'tender.created', transformedTender);
+
     res.status(201).json({
       success: true,
       data: { tender: transformedTender },
@@ -464,6 +468,9 @@ const updateTender = async (req, res) => {
       updatedAt: tender.updatedAt
     };
 
+    // Trigger outbound webhook event
+    webhookDispatcher.triggerEvent(companyId, 'tender.updated', transformedTender);
+
     res.json({
       success: true,
       data: { tender: transformedTender },
@@ -505,6 +512,9 @@ const deleteTender = async (req, res) => {
     tender.isDeleted = true;
     tender.updatedDate = new Date();
     await tender.save();
+
+    // Trigger outbound webhook event
+    webhookDispatcher.triggerEvent(companyId, 'tender.deleted', { id: tender._id });
 
     res.json({
       success: true,
@@ -750,6 +760,9 @@ const updatePipelineStage = async (req, res) => {
     tender.pipelineStage = pipelineStage;
     tender.updatedDate = new Date();
     await tender.save();
+
+    // Trigger outbound webhook event
+    webhookDispatcher.triggerEvent(companyId, 'tender.updated', tender);
 
     res.json({
       success: true,
