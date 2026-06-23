@@ -11,6 +11,24 @@ const setupErrorHandling = (app) => {
     };
 
     // Handle specific error types
+    if (error.name === 'AiUnavailableError' || /AI generation unavailable/i.test(error.message || '')) {
+      errorResponse.error = 'AI Unavailable';
+      errorResponse.message = error.message || 'LLM providers are unavailable. Configure API keys and retry.';
+      if (error.details) {
+        errorResponse.details = error.details;
+      }
+      return res.status(503).json(errorResponse);
+    }
+
+    if (error.name === 'GraphNotConfiguredError') {
+      errorResponse.error = 'Microsoft Graph Unavailable';
+      errorResponse.message = error.message;
+      if (error.details) {
+        errorResponse.details = error.details;
+      }
+      return res.status(503).json(errorResponse);
+    }
+
     if (error.name === 'ValidationError') {
       errorResponse.error = 'Validation Error';
       errorResponse.message = 'The provided data is invalid';

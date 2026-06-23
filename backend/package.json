@@ -14,7 +14,8 @@
     "seed:intelligence-demo": "node src/seed/seeders/intelligenceDemoSeeder.js",
     "seed:sources-watchlists": "node src/seed/seeders/sourcesWatchlistsDemoSeeder.js",
     "seed:medicare-connectors": "node src/seed/seeders/medicareDiscoveryConnectorsSeeder.js",
-    "seed:medicare-platform": "node src/seed/seeders/medicareDiscoveryConnectorsSeeder.js"
+    "seed:medicare-platform": "node src/seed/seeders/medicareDiscoveryConnectorsSeeder.js",
+    "security:check-env": "node scripts/check-env-security.js"
   },
   "dependencies": {
     "axios": "^1.12.2",

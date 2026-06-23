@@ -15,11 +15,15 @@ async function readDocumentText(document) {
     throw new Error('Document storage path is missing');
   }
 
+  const uploadsRoot = path.join(__dirname, '../../../../uploads');
   const filePath = path.isAbsolute(relativePath)
     ? relativePath
-    : path.join(__dirname, '../../../../uploads', relativePath);
+    : storage.filename
+      ? path.join(uploadsRoot, storage.filename)
+      : path.join(path.join(__dirname, '../../..'), relativePath.replace(/^uploads[\\/]/, 'uploads/'));
+
   if (!fs.existsSync(filePath)) {
-    throw new Error('Document file not found on disk');
+    throw new Error(`Document file not found on disk: ${filePath}`);
   }
 
   const buffer = fs.readFileSync(filePath);
@@ -67,7 +71,7 @@ class ExtractionPipeline {
     try {
       const text = await readDocumentText(document);
       const aiSummary = await aiOrchestrator.summarize({
-        title: document.name || storage.originalName,
+        title: document.name || document.storage?.originalName,
         description: text.slice(0, 4000)
       });
 

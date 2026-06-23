@@ -1,8 +1,10 @@
 const axios = require('axios');
 const { validateLLMOutput, ExtractedRequirementsSchema, GeneratedSectionSchema, FactCheckResultSchema } = require('../schemas/rfpSchemas');
 const { EXTRACT_REQUIREMENTS, SECTION_PROMPTS, FACT_CHECK } = require('../prompts/rfpPrompts');
+const AiUnavailableError = require('../errors/AiUnavailableError');
 
 const MAX_RETRIES = 3;
+const MOCK_MODEL_PATTERNS = [/mock/i, /fallback/i, /heuristic/i];
 
 class RfpCopilotService {
   constructor() {
@@ -11,6 +13,37 @@ class RfpCopilotService {
     this.geminiModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
     this.openaiApiKey = process.env.OPENAI_API_KEY;
     this.openaiModel = process.env.OPENAI_MODEL || 'gpt-4o';
+  }
+
+  hasConfiguredProvider() {
+    return Boolean(this.geminiApiKey || this.openaiApiKey);
+  }
+
+  assertProvidersConfigured() {
+    if (!this.hasConfiguredProvider()) {
+      throw new AiUnavailableError(
+        'No LLM provider configured. Set GEMINI_API_KEY and/or OPENAI_API_KEY in backend/.env.',
+        { geminiConfigured: Boolean(this.geminiApiKey), openaiConfigured: Boolean(this.openaiApiKey) }
+      );
+    }
+  }
+
+  assertRealModel(llmResponse) {
+    const model = String(llmResponse?.model || '');
+    if (MOCK_MODEL_PATTERNS.some((pattern) => pattern.test(model))) {
+      throw new AiUnavailableError(
+        `Refusing synthetic copilot output from model "${model}". Configure a real LLM provider.`,
+        { model }
+      );
+    }
+  }
+
+  isNonRetryableAiError(error) {
+    return (
+      error instanceof AiUnavailableError ||
+      /AI generation unavailable/i.test(error?.message || '') ||
+      /API key not configured/i.test(error?.message || '')
+    );
   }
 
   // ─── LLM Abstraction Layer ──────────────────────────────────────
@@ -83,20 +116,33 @@ class RfpCopilotService {
    * Fails closed when both providers are unavailable — no mock/synthetic output.
    */
   async callLLM(systemPrompt, userPrompt) {
+    this.assertProvidersConfigured();
+
     let geminiError;
     try {
-      return await this.callGemini(systemPrompt, userPrompt);
+      const response = await this.callGemini(systemPrompt, userPrompt);
+      this.assertRealModel(response);
+      return response;
     } catch (error) {
       geminiError = error;
+      if (this.isNonRetryableAiError(error) && !this.openaiApiKey) {
+        throw error;
+      }
       console.warn(`⚠️ Gemini failed (${error.message}), falling back to OpenAI...`);
     }
 
     try {
-      return await this.callOpenAI(systemPrompt, userPrompt);
+      const response = await this.callOpenAI(systemPrompt, userPrompt);
+      this.assertRealModel(response);
+      return response;
     } catch (openaiError) {
       console.error(`❌ OpenAI failed (${openaiError.message}) after Gemini failure`);
-      throw new Error(
-        `AI generation unavailable: Gemini (${geminiError.message}); OpenAI (${openaiError.message})`
+      throw new AiUnavailableError(
+        `AI generation unavailable: Gemini (${geminiError.message}); OpenAI (${openaiError.message})`,
+        {
+          geminiError: geminiError.message,
+          openaiError: openaiError.message
+        }
       );
     }
   }
@@ -106,6 +152,8 @@ class RfpCopilotService {
    * If validation fails, the error is injected into the retry prompt.
    */
   async callWithValidation(systemPrompt, userPrompt, schema) {
+    this.assertProvidersConfigured();
+
     let lastError = null;
     let retryPrompt = userPrompt;
 
@@ -124,23 +172,28 @@ class RfpCopilotService {
           };
         }
 
-        // Inject validation error into retry prompt
         lastError = validation.error;
         retryPrompt = `${userPrompt}\n\nYOUR PREVIOUS RESPONSE WAS INVALID. FIX THESE ERRORS:\n${validation.error}\n\nReturn ONLY valid JSON matching the required schema.`;
         console.warn(`⚠️ Schema validation failed (attempt ${attempt}/${MAX_RETRIES}): ${validation.error}`);
       } catch (err) {
         lastError = err.message;
         console.error(`❌ LLM call failed (attempt ${attempt}/${MAX_RETRIES}):`, err.message);
+        if (this.isNonRetryableAiError(err)) {
+          throw err;
+        }
       }
     }
 
-    throw new Error(`Failed after ${MAX_RETRIES} attempts. Last error: ${lastError}`);
+    throw new AiUnavailableError(`Failed after ${MAX_RETRIES} attempts. Last error: ${lastError}`, {
+      lastError
+    });
   }
 
   // ─── Phase 1: Extract Requirements ─────────────────────────────
 
   async extractRequirements(tenderData) {
     console.log(`🔍 Phase 1: Extracting requirements from tender "${tenderData.title}"...`);
+    this.assertProvidersConfigured();
 
     const result = await this.callWithValidation(
       EXTRACT_REQUIREMENTS.system,
@@ -173,6 +226,7 @@ class RfpCopilotService {
     }
 
     console.log(`📝 Phase 2: Generating section "${sectionType}"...`);
+    this.assertProvidersConfigured();
 
     const result = await this.callWithValidation(
       promptConfig.system,
@@ -214,9 +268,9 @@ class RfpCopilotService {
 
   async validateSection(sectionContent, requirements, tenderData) {
     console.log(`✅ Phase 3: Running fact-check validation...`);
+    this.assertProvidersConfigured();
 
-    try {
-      const result = await this.callWithValidation(
+    const result = await this.callWithValidation(
         FACT_CHECK.system,
         FACT_CHECK.user(sectionContent, requirements, tenderData),
         FactCheckResultSchema
@@ -229,10 +283,6 @@ class RfpCopilotService {
         summary: result.data.summary,
         model: result.model
       };
-    } catch (error) {
-      console.error('⚠️ Fact-check validation failed:', error.message);
-      throw error;
-    }
   }
 
   // ─── Compliance Audit ──────────────────────────────────────────

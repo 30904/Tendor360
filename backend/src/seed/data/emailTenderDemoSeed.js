@@ -122,10 +122,10 @@ async function seedEmailTenderDemoForCompany(companyId) {
       displayName: 'Microsoft Graph Mail (Outlook)',
       category: 'discovery',
       status: 'active',
-      health: process.env.MS_GRAPH_TENANT_ID ? 'healthy' : 'healthy',
+      health: process.env.MS_GRAPH_TENANT_ID ? 'healthy' : 'degraded',
       config: {
-        configured: true,
-        mode: process.env.MS_GRAPH_TENANT_ID ? 'live_graph' : 'demo_inbox',
+        configured: Boolean(process.env.MS_GRAPH_TENANT_ID),
+        mode: process.env.MS_GRAPH_TENANT_ID ? 'live_graph' : 'unconfigured',
         regions: ['US', 'AT'],
         seededAt: new Date().toISOString()
       },

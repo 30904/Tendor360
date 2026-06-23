@@ -13,14 +13,14 @@ exports.getEmailTenderRtm = catchAsync(async (req, res) => {
     {
       id: 'ATS-001',
       title: 'Read tender emails from Outlook mailbox',
-      status: summary.mailboxes > 0 || summary.graphConfigured ? 'active' : 'ready',
-      detail: `${summary.mailboxes} mailbox(es) (US + AT). Microsoft Graph: ${summary.graphConfigured ? 'configured' : 'demo inbox mode — set MS_GRAPH_* env for live Outlook.'}`
+      status: summary.graphConfigured ? 'active' : 'not_available',
+      detail: `${summary.mailboxes} mailbox(es) (US + AT). Microsoft Graph: ${summary.graphConfigured ? 'configured' : 'not configured — live Outlook scan disabled until MS_GRAPH_* env vars are set.'}`
     },
     {
       id: 'ATS-002',
       title: 'Keyword scanning in email body',
       status: reqStatus(summary.counts.withBodyHits > 0),
-      detail: `${summary.counts.withBodyHits} message(s) with body keyword hits from watchlists / email sources.`
+      detail: `${summary.counts.withBodyHits} message(s) with body keyword hits from watchlists, global keywords, and Excel master file (auto-loaded on scan).`
     },
     {
       id: 'ATS-003',

@@ -17,6 +17,12 @@ import {
 } from '../../store/slices/rfpResponseSlice'
 import { toast } from 'react-toastify'
 
+const getApiErrorMessage = (err) => {
+  if (!err) return 'Request failed';
+  if (typeof err === 'string') return err;
+  return err.message || err.error || 'Request failed';
+};
+
 const RFPResponseEditor = () => {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -53,7 +59,7 @@ const RFPResponseEditor = () => {
       const action = await dispatch(extractRequirements(id)).unwrap()
       toast.success(`Extracted ${action.requirements.length} requirements`)
     } catch (err) {
-      toast.error(err || 'Extraction failed')
+      toast.error(getApiErrorMessage(err))
     }
   }
 
@@ -62,7 +68,7 @@ const RFPResponseEditor = () => {
       await dispatch(generateAllSections(id)).unwrap()
       toast.success('Generated all pending sections')
     } catch (err) {
-      toast.error(err || 'Generation failed')
+      toast.error(getApiErrorMessage(err))
     }
   }
 
@@ -71,7 +77,7 @@ const RFPResponseEditor = () => {
       await dispatch(generateSection({ id, sectionType })).unwrap()
       toast.success('Section generated successfully')
     } catch (err) {
-      toast.error(err || 'Generation failed')
+      toast.error(getApiErrorMessage(err))
     }
   }
 
@@ -85,7 +91,7 @@ const RFPResponseEditor = () => {
       setEditMode(false)
       toast.success('Changes saved')
     } catch (err) {
-      toast.error(err || 'Save failed')
+      toast.error(getApiErrorMessage(err))
     }
   }
 
@@ -94,7 +100,7 @@ const RFPResponseEditor = () => {
       await dispatch(approveSection({ id, sectionId: activeSectionId, comments: 'Approved' })).unwrap()
       toast.success('Section approved')
     } catch (err) {
-      toast.error(err || 'Approval failed')
+      toast.error(getApiErrorMessage(err))
     }
   }
 
@@ -103,7 +109,7 @@ const RFPResponseEditor = () => {
       const action = await dispatch(validateResponse(id)).unwrap()
       toast.success(`Audit complete: ${action.complianceAudit.coveragePercentage}% coverage`)
     } catch (err) {
-      toast.error(err || 'Validation failed')
+      toast.error(getApiErrorMessage(err))
     }
   }
 
@@ -112,7 +118,7 @@ const RFPResponseEditor = () => {
       await dispatch(updateRfpResponseMetadata({ id, data: { status: 'REVIEW' } })).unwrap()
       toast.success('Sent for review successfully')
     } catch (err) {
-      toast.error(err || 'Failed to send for review')
+      toast.error(getApiErrorMessage(err))
     }
   }
 

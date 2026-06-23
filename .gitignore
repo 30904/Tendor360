@@ -3,5 +3,13 @@ test-results/
 playwright-report/
 tests/.auth/
 *.log
+
+# Secrets — never commit real credentials
 .env
 .env.local
+.env.*.local
+backend/.env
+backend/.env.local
+backend/.env.production
+!backend/.env.example
+!backend/.env.production.example

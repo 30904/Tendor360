@@ -211,7 +211,7 @@ exports.getTenderIntelligenceRtm = catchAsync(async (req, res) => {
       id: 'TB-009',
       title: 'Extract pricing sheet details',
       status: statusFor(summary.counts.pricing),
-      detail: `${summary.counts.pricing} tender(s) with qty / UoM / description line items.`
+      detail: `${summary.counts.pricing} tender(s) with qty / UoM / description line items (XLSX column parser with text fallback).`
     },
     {
       id: 'TB-010',

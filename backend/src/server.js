@@ -1,32 +1,17 @@
 
 const express = require('express');
-const dotenv = require('dotenv');
 const path = require('path');
 const fs = require('fs');
 const mongoose = require('mongoose');
+const { loadEnvironment, getSafeEnvSummary } = require('./config/env');
 
-
-// Load environment variables
-console.log('📁 Loading environment variables from:', path.join(__dirname, '../.env'));
-dotenv.config({ path: path.join(__dirname, '../.env') });
-
-// Set default JWT secrets for development if not provided
-if (!process.env.JWT_ACCESS_SECRET) {
-  process.env.JWT_ACCESS_SECRET = 'tender360_dev_access_secret_key_2024_velioniq_ai_suite';
-  console.log('⚠️  Using default JWT access secret for development');
+const { loadedFromFile } = loadEnvironment();
+if (loadedFromFile) {
+  console.log('📁 Environment loaded from local .env (development only)');
+} else {
+  console.log('📁 Environment loaded from host process variables');
 }
-if (!process.env.JWT_REFRESH_SECRET) {
-  process.env.JWT_REFRESH_SECRET = 'tender360_dev_refresh_secret_key_2024_velioniq_ai_suite';
-  console.log('⚠️  Using default JWT refresh secret for development');
-}
-
-console.log('🔧 Environment variables loaded:', {
-  NODE_ENV: process.env.NODE_ENV,
-  PORT: process.env.PORT,
-  MONGO_URI: process.env.MONGO_URI ? 'Set' : 'Not set',
-  JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET ? 'Set' : 'Not set',
-  JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET ? 'Set' : 'Not set'
-});
+console.log('🔧 Environment summary:', getSafeEnvSummary());
 
 // Import models first to ensure schemas are registered
 require('./models');

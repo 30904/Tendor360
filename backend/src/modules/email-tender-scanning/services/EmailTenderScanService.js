@@ -7,6 +7,7 @@ const graphMail = require('./MicrosoftGraphMailService');
 const imapMail = require('./ImapMailService');
 const { recordFailureWithNotification } = require('./FailureNotificationService');
 const AutomationFailure = require('../../automation/models/AutomationFailure');
+const GraphNotConfiguredError = require('../errors/GraphNotConfiguredError');
 
 function slugId(value) {
   return String(value || '')
@@ -220,7 +221,8 @@ class EmailTenderScanService {
     });
     if (!mailbox) throw new Error('Mailbox not found');
 
-    const keywords = await keywordScanner.loadKeywordsForCompany(companyId);
+    const keywordResult = await keywordScanner.loadKeywordsForCompany(companyId);
+    const keywords = keywordResult.keywords;
     let ingested = 0;
 
     try {
@@ -249,8 +251,13 @@ class EmailTenderScanService {
         await this.processMessageDoc(doc, keywords, mailbox);
         ingested += 1;
       }
-    } else if (mailbox.provider === 'graph' || graphMail.isGraphConfigured()) {
-      // --- Microsoft Graph path ---
+    } else if (mailbox.provider === 'graph') {
+      if (!graphMail.isGraphConfigured()) {
+        throw new GraphNotConfiguredError(
+          `Mailbox ${mailbox.email} is configured for Microsoft Graph but MS_GRAPH_* environment variables are not set.`,
+          { mailbox: mailbox.email, provider: mailbox.provider }
+        );
+      }
       const remote = await graphMail.fetchInboxMessages(mailbox, companyId);
       for (const item of remote) {
         const existing = await EmailTenderMessage.findOne({
@@ -269,8 +276,7 @@ class EmailTenderScanService {
         await this.processMessageDoc(doc, keywords, mailbox);
         ingested += 1;
       }
-    } else {
-      // --- Demo / pending re-scan path ---
+    } else if (mailbox.provider === 'demo') {
       const pending = await EmailTenderMessage.find({
         companyId,
         mailboxId: mailbox._id,
@@ -281,13 +287,21 @@ class EmailTenderScanService {
         await this.processMessageDoc(doc, keywords, mailbox);
         ingested += 1;
       }
+    } else {
+      throw new Error(`Unsupported mailbox provider: ${mailbox.provider}`);
     }
 
     mailbox.lastScanAt = new Date();
     await mailbox.save();
-    return { mailbox, ingested, keywords: keywords.length };
+    return {
+      mailbox,
+      ingested,
+      keywords: keywords.length,
+      excelKeywordCount: keywordResult.excelKeywordCount || 0,
+      excelSources: keywordResult.excelSources || []
+    };
     } catch (error) {
-      if (!graphMail.isGraphConfigured()) {
+      if (mailbox.provider !== 'demo' || error.name === 'GraphNotConfiguredError') {
         await recordFailureWithNotification({
           companyId,
           requirementId: 'ATS-010',
@@ -394,7 +408,7 @@ class EmailTenderScanService {
 
     logs.push({
       level: 'info',
-      message: `ATS-001–007: processed email scan; ${opportunities.length} opportunity(ies) from ${matched.length} matched message(s). Graph: ${graphMail.isGraphConfigured() ? 'live' : 'demo cache'}.`
+      message: `ATS-001–007: processed email scan; ${opportunities.length} opportunity(ies) from ${matched.length} matched message(s). Graph: ${graphMail.isGraphConfigured() ? 'live' : 'not configured'}.`
     });
 
     return { opportunities, nextCursor: null, logs };

@@ -1,6 +1,9 @@
 const Document = require('../models/Document');
 const Tender = require('../models/Tender');
 const { catchAsync } = require('../utils/errorHandler');
+const extractionPipeline = require('../modules/document-intelligence/services/ExtractionPipeline');
+const { readDocumentText } = require('../modules/document-intelligence/services/ExtractionPipeline');
+const documentAI = require('../ai/services/documentAI');
 
 // Get all documents with filters and pagination
 const getDocuments = catchAsync(async (req, res) => {
@@ -116,64 +119,82 @@ const uploadDocument = catchAsync(async (req, res) => {
   });
 });
 
-// Process document with AI (simulated)
+// Process document with AI using ExtractionPipeline + Gemini/OpenAI
 const processDocumentWithAI = async (documentId) => {
+  let document;
+
   try {
-    const document = await Document.findById(documentId);
+    document = await Document.findById(documentId);
     if (!document) return;
 
-    // Update status to processing
     document.status = 'PROCESSING';
     await document.save();
 
-    // Simulate AI processing delay
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    const text = await readDocumentText(document);
+    if (!text || text.trim().length < 50) {
+      throw new Error('Document contains insufficient readable text for AI extraction');
+    }
 
-    // Simulated AI extraction results
+    if (document.companyId) {
+      try {
+        await extractionPipeline.run(document.companyId, documentId, { pipeline: 'full' });
+      } catch (pipelineError) {
+        console.warn(`ExtractionPipeline warning for document ${documentId}:`, pipelineError.message);
+      }
+    }
+
+    const metadata = await documentAI.extractTenderMetadata(
+      text,
+      document.name || document.storage?.originalName || ''
+    );
+
     const aiResults = {
       isProcessed: true,
       processedAt: new Date(),
-      confidence: Math.floor(Math.random() * 30) + 70, // 70-100%
+      confidence: metadata.confidence,
       extractedData: {
-        tenderTitle: 'Healthcare IT Infrastructure Development',
-        organization: 'City General Hospital',
+        tenderTitle: metadata.tenderTitle,
+        organization: metadata.organization || '',
         estimatedValue: {
-          amount: Math.floor(Math.random() * 5000000) + 1000000,
-          currency: 'USD'
+          amount: metadata.estimatedValue?.amount ?? 0,
+          currency: metadata.estimatedValue?.currency || 'USD'
         },
-        deadline: new Date(Date.now() + Math.random() * 30 * 24 * 60 * 60 * 1000),
-        location: 'New York, NY',
-        description: 'Development of comprehensive healthcare IT infrastructure including patient management, billing systems, and telemedicine platforms.',
-        requirements: [
-          'Minimum 5 years experience in healthcare IT',
-          'HIPAA compliance certification',
-          'Cloud infrastructure expertise',
-          '24/7 support capability'
-        ],
-        categories: ['Healthcare', 'IT Infrastructure', 'Software Development'],
+        deadline: metadata.deadline ? new Date(metadata.deadline) : undefined,
+        location: metadata.location || '',
+        description: metadata.description || '',
+        requirements: metadata.requirements || [],
+        categories: metadata.categories || [],
         contactInfo: {
-          name: 'Dr. Sarah Johnson',
-          email: 'procurement@cityhospital.org',
-          phone: '+1-555-0123'
+          name: metadata.contactInfo?.name || '',
+          email: metadata.contactInfo?.email || '',
+          phone: metadata.contactInfo?.phone || ''
         }
       },
-      rawText: 'Sample extracted text from document...',
-      summary: 'Healthcare IT infrastructure development project with focus on patient management and telemedicine.',
-      keywords: ['healthcare', 'IT', 'infrastructure', 'telemedicine', 'HIPAA']
+      rawText: text.slice(0, 50000),
+      summary: metadata.summary || '',
+      keywords: metadata.keywords || []
     };
 
     document.aiExtraction = aiResults;
     document.status = 'EXTRACTED';
     await document.save();
 
-    console.log(`✅ Document ${documentId} processed with AI`);
+    console.log(`✅ Document ${documentId} processed with real AI extraction`);
   } catch (error) {
     console.error(`❌ AI processing failed for document ${documentId}:`, error);
-    
-    // Update status to uploaded if processing fails
-    const document = await Document.findById(documentId);
+
+    if (!document) {
+      document = await Document.findById(documentId);
+    }
+
     if (document) {
       document.status = 'UPLOADED';
+      document.aiExtraction = {
+        ...(document.aiExtraction || {}),
+        isProcessed: false,
+        processedAt: new Date(),
+        summary: error.message
+      };
       await document.save();
     }
   }
@@ -193,7 +214,7 @@ const processDocumentAI = catchAsync(async (req, res) => {
     });
   }
 
-  if (document.aiExtraction.isProcessed) {
+  if (document.aiExtraction?.isProcessed) {
     return res.status(400).json({
       error: 'Already processed',
       message: 'Document has already been processed by AI'
@@ -223,7 +244,7 @@ const createTenderRecord = catchAsync(async (req, res) => {
     });
   }
 
-  if (!document.aiExtraction.isProcessed) {
+  if (!document.aiExtraction?.isProcessed) {
     return res.status(400).json({
       error: 'Document not processed',
       message: 'Document must be processed by AI before creating tender record'

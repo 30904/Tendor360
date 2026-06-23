@@ -8,8 +8,10 @@ class DocumentAIService {
   constructor() {
     this.geminiApiKey = process.env.GEMINI_API_KEY;
     this.geminiBaseUrl = process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta';
+    this.geminiModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    this.openaiApiKey = process.env.OPENAI_API_KEY;
+    this.openaiModel = process.env.OPENAI_MODEL || 'gpt-4o-mini';
     this.maxTokens = 4000;
-    this.model = 'gemini-1.5-pro';
   }
 
   /**
@@ -45,7 +47,7 @@ class DocumentAIService {
   }
 
   /**
-   * Call Google Gemini API for AI processing
+   * Call Gemini API for AI processing
    */
   async callGemini(prompt, systemPrompt = null) {
     try {
@@ -53,11 +55,10 @@ class DocumentAIService {
         throw new Error('Gemini API key not configured');
       }
 
-      // Combine system prompt and user prompt
       const fullPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
 
       const response = await axios.post(
-        `${this.geminiBaseUrl}/models/${this.model}:generateContent?key=${this.geminiApiKey}`,
+        `${this.geminiBaseUrl}/models/${this.geminiModel}:generateContent?key=${this.geminiApiKey}`,
         {
           contents: [{
             parts: [{
@@ -65,16 +66,18 @@ class DocumentAIService {
             }]
           }],
           generationConfig: {
-            temperature: 0.3,
+            temperature: 0.2,
             maxOutputTokens: this.maxTokens,
             topP: 0.8,
-            topK: 10
+            topK: 10,
+            responseMimeType: 'application/json'
           }
         },
         {
           headers: {
             'Content-Type': 'application/json',
           },
+          timeout: 60000
         }
       );
 
@@ -89,9 +92,120 @@ class DocumentAIService {
     }
   }
 
+  async callOpenAI(prompt, systemPrompt = null) {
+    if (!this.openaiApiKey) {
+      throw new Error('OpenAI API key not configured');
+    }
+
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: this.openaiModel,
+        messages: [
+          { role: 'system', content: systemPrompt || 'Return valid JSON only.' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.2,
+        max_tokens: this.maxTokens,
+        response_format: { type: 'json_object' }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${this.openaiApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 60000
+      }
+    );
+
+    const content = response.data?.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error('Invalid response from OpenAI API');
+    }
+    return content;
+  }
+
+  async callLLM(prompt, systemPrompt = null) {
+    let geminiError;
+    try {
+      return await this.callGemini(prompt, systemPrompt);
+    } catch (error) {
+      geminiError = error;
+      console.warn(`Gemini document extraction failed (${error.message}), trying OpenAI...`);
+    }
+
+    try {
+      return await this.callOpenAI(prompt, systemPrompt);
+    } catch (openaiError) {
+      throw new Error(
+        `AI extraction unavailable: Gemini (${geminiError.message}); OpenAI (${openaiError.message})`
+      );
+    }
+  }
+
+  parseJsonResponse(raw) {
+    const text = String(raw || '').trim();
+    const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    const candidate = fenced ? fenced[1].trim() : text;
+    return JSON.parse(candidate);
+  }
+
   /**
-   * Extract key requirements from tender document
+   * Extract structured tender metadata for document upload workflow
    */
+  async extractTenderMetadata(documentText, documentName = '') {
+    const systemPrompt = `You are an expert tender analyst. Extract only facts present in the document text.
+Never invent organizations, contacts, values, or deadlines. Use null for unknown scalar fields and [] for unknown lists.
+Return valid JSON only.`;
+
+    const prompt = `Extract tender opportunity metadata from the document below.
+
+Return JSON with this shape:
+{
+  "tenderTitle": "string",
+  "organization": "string|null",
+  "estimatedValue": { "amount": number|null, "currency": "string|null" },
+  "deadline": "ISO-8601 date string or null",
+  "location": "string|null",
+  "description": "string",
+  "requirements": ["string"],
+  "categories": ["string"],
+  "contactInfo": { "name": "string|null", "email": "string|null", "phone": "string|null" },
+  "summary": "string",
+  "keywords": ["string"],
+  "confidence": number
+}
+
+Document name: ${documentName}
+Document text:
+${documentText.slice(0, 12000)}`;
+
+    const aiResponse = await this.callLLM(prompt, systemPrompt);
+    const parsed = this.parseJsonResponse(aiResponse);
+
+    return {
+      tenderTitle: parsed.tenderTitle || documentName || 'Untitled tender',
+      organization: parsed.organization || null,
+      estimatedValue: {
+        amount: typeof parsed.estimatedValue?.amount === 'number' ? parsed.estimatedValue.amount : null,
+        currency: parsed.estimatedValue?.currency || 'USD'
+      },
+      deadline: parsed.deadline || null,
+      location: parsed.location || null,
+      description: parsed.description || '',
+      requirements: Array.isArray(parsed.requirements) ? parsed.requirements.filter(Boolean) : [],
+      categories: Array.isArray(parsed.categories) ? parsed.categories.filter(Boolean) : [],
+      contactInfo: {
+        name: parsed.contactInfo?.name || null,
+        email: parsed.contactInfo?.email || null,
+        phone: parsed.contactInfo?.phone || null
+      },
+      summary: parsed.summary || '',
+      keywords: Array.isArray(parsed.keywords) ? parsed.keywords.filter(Boolean) : [],
+      confidence: Math.min(100, Math.max(0, Number(parsed.confidence) || Math.round(this.calculateConfidenceScore(documentText) * 100)))
+    };
+  }
+
   async extractRequirements(documentText) {
     const systemPrompt = `You are an expert tender analyst. Extract key requirements from tender documents and return them in a structured JSON format.`;
 

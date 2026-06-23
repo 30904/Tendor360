@@ -1,6 +1,7 @@
 const axios = require('axios');
 const outlookAuth = require('./OutlookAuthRetryService');
 const { recordFailureWithNotification } = require('./FailureNotificationService');
+const GraphNotConfiguredError = require('../errors/GraphNotConfiguredError');
 
 const MAX_RETRIES = outlookAuth.MAX_RETRIES;
 
@@ -40,7 +41,7 @@ async function graphGet(path, token) {
 }
 
 async function fetchInboxMessages(mailbox, companyId) {
-  if (!isGraphConfigured()) return [];
+  outlookAuth.assertGraphConfigured({ mailbox: mailbox?.email, operation: 'fetchInboxMessages' });
 
   try {
     const auth = await outlookAuth.authenticateWithRetry({ companyId, mailbox });
@@ -87,8 +88,18 @@ async function fetchInboxMessages(mailbox, companyId) {
 }
 
 async function moveMessageToFolder(mailbox, graphMessageId, folderName, companyId) {
-  if (!isGraphConfigured() || !graphMessageId) {
-    return { simulated: true, folder: folderName };
+  if (!isGraphConfigured()) {
+    if (mailbox?.provider === 'demo') {
+      return { simulated: true, folder: folderName, reason: 'demo_mailbox' };
+    }
+    throw new GraphNotConfiguredError(undefined, {
+      mailbox: mailbox?.email,
+      operation: 'moveMessageToFolder'
+    });
+  }
+
+  if (!graphMessageId) {
+    return { simulated: true, folder: folderName, note: 'No Graph message id' };
   }
 
   const auth = await outlookAuth.authenticateWithRetry({ companyId, mailbox });

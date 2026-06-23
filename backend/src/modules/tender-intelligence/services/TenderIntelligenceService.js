@@ -10,7 +10,7 @@ const scoringEngine = require('../../ai-scoring/services/ScoringEngine');
 const {
   extractCommercialFields,
   extractTermsFields,
-  extractPricingLineItems
+  extractPricingLineItemsFromDocument
 } = require('../../document-intelligence/utils/tenderIntelligenceExtractors');
 
 async function runPipelineOnDocument(companyId, documentId, tenderId, pipeline) {
@@ -27,8 +27,9 @@ async function runPipelineOnDocument(companyId, documentId, tenderId, pipeline) 
  */
 async function runExtendedPipelines(companyId, documentId, tenderId) {
   let text = '';
+  let document = null;
   if (documentId) {
-    const document = await Document.findOne({ _id: documentId, companyId });
+    document = await Document.findOne({ _id: documentId, companyId });
     if (document) {
       try {
         text = await readDocumentText(document);
@@ -44,7 +45,8 @@ async function runExtendedPipelines(companyId, documentId, tenderId) {
 
   const commercial = extractCommercialFields(text);
   const terms = extractTermsFields(text);
-  const pricingLines = extractPricingLineItems(text);
+  const pricingResult = extractPricingLineItemsFromDocument(document, text);
+  const pricingLines = pricingResult.lineItems;
 
   const pipelines = [
     {
@@ -66,7 +68,14 @@ async function runExtendedPipelines(companyId, documentId, tenderId) {
     },
     {
       pipeline: 'pricing',
-      results: [{ fieldKey: 'line_items', fieldValue: pricingLines, confidence: pricingLines.length ? 75 : 42 }]
+      results: [
+        { fieldKey: 'line_items', fieldValue: pricingLines, confidence: pricingResult.confidence },
+        {
+          fieldKey: 'parse_source',
+          fieldValue: pricingResult.parseSource,
+          confidence: pricingResult.parseSource === 'xlsx_columns' ? 90 : 50
+        }
+      ]
     }
   ];
 
@@ -92,7 +101,7 @@ async function runExtendedPipelines(companyId, documentId, tenderId) {
     );
   }
 
-  return { commercial, terms, pricingLines };
+  return { commercial, terms, pricingLines, pricingParseSource: pricingResult.parseSource };
 }
 
 async function aggregateTenderIntelligence(companyId, tenderId) {

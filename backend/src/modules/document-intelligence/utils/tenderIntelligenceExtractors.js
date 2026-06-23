@@ -1,7 +1,12 @@
 /**
  * Heuristic extractors for TB-007–TB-009 (attachment text).
- * Production deployments should augment with AI/table parsers.
+ * TB-009 pricing sheets use XLSX column parsing when a spreadsheet attachment is available.
  */
+
+const {
+  parsePricingSheetFromDocument,
+  isSpreadsheetDocument
+} = require('./PricingSheetParser');
 
 function extractShipTo(text) {
   const patterns = [
@@ -78,6 +83,23 @@ function extractPricingLineItems(text) {
   }
 
   if (!lines.length) {
+    const tabular = text.split(/\r?\n/).filter((line) => line.includes('\t') || line.split(',').length >= 3);
+    tabular.slice(0, 50).forEach((line) => {
+      const cells = line.includes('\t') ? line.split('\t') : line.split(',');
+      if (cells.length < 3) return;
+      const quantity = Number(String(cells[0]).replace(/[^\d.]/g, ''));
+      const uom = String(cells[1] || 'EA').trim() || 'EA';
+      const description = String(cells.slice(2).join(' ')).trim();
+      if (!description || description.length < 4) return;
+      lines.push({
+        quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+        uom,
+        description
+      });
+    });
+  }
+
+  if (!lines.length) {
     const simple = text.match(/(\d+)\s*x\s*([^\n]{10,80})/gi) || [];
     simple.slice(0, 10).forEach((row) => {
       const parts = row.split(/\s*x\s*/i);
@@ -94,10 +116,34 @@ function extractPricingLineItems(text) {
   return lines;
 }
 
+/**
+ * TB-009 entry point — prefer structured XLSX column parse, fall back to text heuristics.
+ */
+function extractPricingLineItemsFromDocument(document, fallbackText = '') {
+  if (document && isSpreadsheetDocument(document)) {
+    const structured = parsePricingSheetFromDocument(document);
+    if (structured.length) {
+      return {
+        lineItems: structured,
+        parseSource: 'xlsx_columns',
+        confidence: Math.min(95, 70 + Math.min(structured.length, 10))
+      };
+    }
+  }
+
+  const heuristicLines = extractPricingLineItems(fallbackText);
+  return {
+    lineItems: heuristicLines,
+    parseSource: heuristicLines.length ? 'text_heuristic' : 'none',
+    confidence: heuristicLines.length ? 55 : 35
+  };
+}
+
 module.exports = {
   extractCommercialFields,
   extractTermsFields,
   extractPricingLineItems,
+  extractPricingLineItemsFromDocument,
   extractShipTo,
   extractScope,
   extractQuantities,

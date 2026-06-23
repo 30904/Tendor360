@@ -1,13 +1,14 @@
 const Watchlist = require('../../../models/Watchlist');
 const TenderSource = require('../../../models/TenderSource');
 const GlobalKeyword = require('../../../models/GlobalKeyword');
+const { loadExcelKeywordsForCompany } = require('../../tender-discovery/services/ExcelKeywordLoaderService');
 
 function normalizeKeyword(value) {
   return String(value || '').trim().toLowerCase();
 }
 
 async function loadKeywordsForCompany(companyId, extraKeywords = []) {
-  const [watchlists, emailSources, globalKws] = await Promise.all([
+  const [watchlists, emailSources, globalKws, excelKeywordResult] = await Promise.all([
     Watchlist.find({ companyId, status: 'active', isDeleted: false }).select('keywords').lean(),
     TenderSource.find({
       companyId,
@@ -17,8 +18,8 @@ async function loadKeywordsForCompany(companyId, extraKeywords = []) {
     })
       .select('keywords')
       .lean(),
-    // Load from MongoDB GlobalKeyword collection instead of from disk
-    GlobalKeyword.find({ companyId }).select('keyword -_id').lean()
+    GlobalKeyword.find({ companyId }).select('keyword -_id').lean(),
+    loadExcelKeywordsForCompany(companyId)
   ]);
 
   const set = new Set();
@@ -26,8 +27,19 @@ async function loadKeywordsForCompany(companyId, extraKeywords = []) {
   emailSources.forEach((s) => (s.keywords || []).forEach((k) => set.add(normalizeKeyword(k))));
   extraKeywords.forEach((k) => set.add(normalizeKeyword(k)));
   globalKws.forEach((g) => set.add(normalizeKeyword(g.keyword)));
+  excelKeywordResult.keywords.forEach((k) => set.add(normalizeKeyword(k)));
 
-  return [...set].filter(Boolean);
+  if (excelKeywordResult.loadedFrom.length) {
+    console.log(
+      `ATS-002: Loaded ${excelKeywordResult.keywords.length} Excel keyword(s) for company ${companyId} from ${excelKeywordResult.loadedFrom.length} file(s)`
+    );
+  }
+
+  return {
+    keywords: [...set].filter(Boolean),
+    excelKeywordCount: excelKeywordResult.keywords.length,
+    excelSources: excelKeywordResult.loadedFrom
+  };
 }
 
 function scanText(text = '', keywords = []) {

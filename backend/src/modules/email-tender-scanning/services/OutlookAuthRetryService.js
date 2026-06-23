@@ -1,5 +1,6 @@
 const axios = require('axios');
 const { recordFailureWithNotification } = require('./FailureNotificationService');
+const GraphNotConfiguredError = require('../errors/GraphNotConfiguredError');
 
 const MAX_RETRIES = 3;
 
@@ -15,14 +16,20 @@ function isGraphConfigured() {
   );
 }
 
+function assertGraphConfigured(context = {}) {
+  if (!isGraphConfigured()) {
+    throw new GraphNotConfiguredError(undefined, {
+      requirementId: 'ATS-009',
+      ...context
+    });
+  }
+}
+
 /**
  * ATS-009: Outlook / Microsoft Graph token acquisition with 3 retries and mailbox state tracking.
  */
 async function authenticateWithRetry({ companyId, mailbox, onAttempt }) {
-  if (!isGraphConfigured()) {
-    return { mode: 'demo', token: null, attempts: 0 };
-  }
-
+  assertGraphConfigured({ mailbox: mailbox?.email });
   const tenant = process.env.MS_GRAPH_TENANT_ID;
   const url = `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`;
   const params = new URLSearchParams({
@@ -125,5 +132,6 @@ async function authenticateWithRetry({ companyId, mailbox, onAttempt }) {
 module.exports = {
   MAX_RETRIES,
   isGraphConfigured,
+  assertGraphConfigured,
   authenticateWithRetry
 };
