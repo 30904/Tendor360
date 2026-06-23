@@ -55,7 +55,8 @@ const emptyForm = () => ({
     lookbackHours: 24,
     pageSize: 25,
     searchQuery: '',
-    scheduleEnabled: true
+    scheduleEnabled: true,
+    demoMode: false
   },
   scrapingConfig: {
     loginUrl: '',
@@ -550,6 +551,11 @@ const DiscoveryConnectors = () => {
                       <Badge className={`discovery-mode-pill discovery-mode-pill--${row.integrationMode || 'api'}`}>
                         {modeLabel(row.integrationMode)}
                       </Badge>
+                      {row.connectorTemplate === 'govwin' && row.discoveryConfig?.demoMode && (
+                        <Badge bg="info" className="ms-1">
+                          demo
+                        </Badge>
+                      )}
                     </td>
                     <td>
                       <span className="connector-template-label">{row.connectorTemplate || 'generic_api'}</span>
@@ -698,6 +704,15 @@ const DiscoveryConnectors = () => {
               checked={form.discoveryConfig.scheduleEnabled !== false}
               onChange={(e) => updateField('discoveryConfig.scheduleEnabled', e.target.checked)}
             />
+            {form.connectorTemplate === 'govwin' && (
+              <Form.Check
+                type="switch"
+                className="mb-3"
+                label="GovWin demo mode (curated sample opportunities — no live API call)"
+                checked={form.discoveryConfig.demoMode === true}
+                onChange={(e) => updateField('discoveryConfig.demoMode', e.target.checked)}
+              />
+            )}
 
             {isApiMode && (
               <>

@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
+const xlsx = require('xlsx');
 const Document = require('../../../models/Document');
 const SamGovConnector = require('../../../services/connectors/SamGovConnector');
 const WebScrapeConnector = require('../../../services/connectors/WebScrapeConnector');
@@ -13,6 +14,59 @@ function ensureUploadDir(companyId) {
     fs.mkdirSync(dir, { recursive: true });
   }
   return dir;
+}
+
+function isDemoUrl(url) {
+  return typeof url === 'string' && url.startsWith('demo://');
+}
+
+/**
+ * Materialize curated demo portal files for TB-004 when connectors return demo:// URLs.
+ * pricing.xlsx is structured for TB-009 XLSX column parsing.
+ */
+function materializeDemoAttachment(url, destPath) {
+  const resource = String(url || '')
+    .replace(/^demo:\/\//i, '')
+    .replace(/\\/g, '/')
+    .toLowerCase();
+
+  if (resource.endsWith('pricing.xlsx') || resource.includes('/pricing')) {
+    const rows = [
+      ['Line', 'Qty', 'UOM', 'Description', 'SKU', 'Unit Price', 'Line Total'],
+      [1, 4, 'EA', 'Immunoassay analyzer module', 'DIAG-8842-A', 12500, 50000],
+      [2, 12, 'EA', 'Calibration kit annual supply', 'CAL-220', 450, 5400],
+      [3, 2, 'EA', 'Point-of-care connectivity hub', 'POC-HUB-9', 3200, 6400]
+    ];
+    const workbook = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(workbook, xlsx.utils.aoa_to_sheet(rows), 'Pricing');
+    xlsx.writeFile(workbook, destPath);
+    return {
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      demoResource: 'govwin/pricing.xlsx'
+    };
+  }
+
+  if (resource.endsWith('solicitation.pdf') || resource.includes('/solicitation')) {
+    const text = [
+      'REQUEST FOR PROPOSAL — Hospital Diagnostics Refresh',
+      'Organization: MediCare Demo Health System',
+      'Program Summary: Multi-year capital program for core laboratory and point-of-care expansion including cold chain.',
+      'Scope: Immunoassay analyzers, calibration kits, and connectivity hubs for a 400-bed hospital network.',
+      'Response deadline: 2026-08-15',
+      'Contact: procurement.demo@healthsystem.example | +1-617-555-0100',
+      'Location: Boston, MA',
+      'Estimated value: USD 618,000',
+      '',
+      'Evaluation criteria: technical capability, service coverage, and total cost of ownership.'
+    ].join('\n');
+    fs.writeFileSync(destPath, text, 'utf8');
+    return { mimeType: 'text/plain', demoResource: 'govwin/solicitation.pdf' };
+  }
+
+  const label = resource || 'demo-attachment';
+  const content = `Tender360 discovery demo file — ${label}\nGenerated for connector preview when live portal download is unavailable.\n`;
+  fs.writeFileSync(destPath, content, 'utf8');
+  return { mimeType: 'text/plain', demoResource: label };
 }
 
 function normalizeAttachmentList(opportunity = {}) {
@@ -54,12 +108,6 @@ async function downloadToFile(url, destPath, timeout = 20000, cookiesHeader = nu
   });
   fs.writeFileSync(destPath, response.data);
   return response.headers['content-type'] || 'application/octet-stream';
-}
-
-async function createPlaceholderFile(destPath, label) {
-  const content = `Tender360 discovery placeholder — ${label}\nGenerated for demo when portal file is unavailable.\n`;
-  fs.writeFileSync(destPath, content, 'utf8');
-  return 'text/plain';
 }
 
 class AttachmentHarvestService {
@@ -120,16 +168,31 @@ class AttachmentHarvestService {
         const filename = `${Date.now()}-${safeName}`;
         const destPath = path.join(uploadDir, filename);
         let mimeType = attachment.mimeType || 'application/pdf';
+        let demoMaterialized = false;
 
-        if (attachment.url && !attachment.url.startsWith('demo://')) {
+        if (isDemoUrl(attachment.url)) {
+          const demo = materializeDemoAttachment(attachment.url, destPath);
+          mimeType = demo.mimeType;
+          demoMaterialized = true;
+        } else if (attachment.url) {
           try {
             mimeType = await downloadToFile(attachment.url, destPath, 20000, cookiesHeader);
           } catch (err) {
-            // TB-004 implementation fix: Do not create placeholder on fail, but let it throw so it counts as failure
             throw new Error(`Failed to download ${attachment.url}: ${err.message}`);
           }
+        } else if (attachment.noticeId && samConfig?.apiKey) {
+          const sam = new SamGovConnector();
+          const samFiles = await sam.fetchAttachments({
+            noticeId: attachment.noticeId,
+            config: samConfig
+          });
+          const match = samFiles[0];
+          if (!match?.url) {
+            throw new Error(`SAM.gov returned no file for notice ${attachment.noticeId}`);
+          }
+          mimeType = await downloadToFile(match.url, destPath, 20000, cookiesHeader);
         } else {
-           throw new Error(`Invalid attachment URL: ${attachment.url}`);
+          throw new Error('Attachment has no downloadable URL or SAM notice id');
         }
 
         const relativePath = path.join(String(companyId), 'discovery', filename);
@@ -152,13 +215,22 @@ class AttachmentHarvestService {
             createdAt: new Date()
           },
           uploadedBy: userId,
-          tags: ['discovery', primaryConnector, samFallbackUsed ? 'sam_fallback' : 'portal'].filter(Boolean),
+          tags: [
+            'discovery',
+            primaryConnector,
+            samFallbackUsed ? 'sam_fallback' : 'portal',
+            demoMaterialized ? 'demo_harvest' : null
+          ].filter(Boolean),
           downloadStatus: 'completed'
         });
 
         results.documents.push(document);
         results.downloaded += 1;
       } catch (error) {
+        console.warn(
+          `Attachment harvest failed for ${attachment.name || attachment.url}:`,
+          error.message
+        );
         results.failed += 1;
       }
     }
@@ -168,3 +240,5 @@ class AttachmentHarvestService {
 }
 
 module.exports = new AttachmentHarvestService();
+module.exports.materializeDemoAttachment = materializeDemoAttachment;
+module.exports.isDemoUrl = isDemoUrl;

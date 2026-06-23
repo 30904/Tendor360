@@ -70,7 +70,9 @@ const tenderSourceSchema = new mongoose.Schema({
     pageSize: { type: Number, default: 25, min: 1, max: 100 },
     searchQuery: { type: String, trim: true, default: '' },
     searchParams: { type: mongoose.Schema.Types.Mixed, default: {} },
-    scheduleEnabled: { type: Boolean, default: true }
+    scheduleEnabled: { type: Boolean, default: true },
+    /** GovWin / connector preview: use curated demo opportunities (no live API). */
+    demoMode: { type: Boolean, default: false }
   },
 
   scrapingConfig: {
