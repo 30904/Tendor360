@@ -5,12 +5,15 @@ import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
+import { toast } from 'react-toastify'
 import './Declarations.scss'
 
 const Declarations = () => {
   const navigate = useNavigate()
   const [declarations, setDeclarations] = useState([])
   const [stats, setStats] = useState({})
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [selectedDeclaration, setSelectedDeclaration] = useState(null)
 
   useEffect(() => {
     setDeclarations([
@@ -130,13 +133,12 @@ const Declarations = () => {
   }, [])
 
   const handleViewDeclaration = (declaration) => {
-    console.log('View declaration:', declaration)
-    // Navigate to view declaration or open view modal
+    setSelectedDeclaration(declaration)
+    setShowViewModal(true)
   }
 
   const handleEditDeclaration = (declaration) => {
-    console.log('Edit declaration:', declaration)
-    // Navigate to edit declaration or open edit modal
+    toast.info(`Editing declaration "${declaration.title}" is disabled in Demo Mode.`)
   }
 
   const handleDeleteDeclaration = (declaration) => {
@@ -269,7 +271,8 @@ const Declarations = () => {
   }, [stats])
 
   return (
-    <ExecutiveCommandCenter
+    <>
+      <ExecutiveCommandCenter
       className="declarations-page"
       breadcrumbs={[
         { label: 'Qualification & Evaluation', onClick: () => navigate('/qualification-evaluation') },
@@ -339,7 +342,7 @@ const Declarations = () => {
       tableTitle={`Qualification declarations (${declarations.length})`}
       tableActions={(
         <>
-          <Button variant="primary" className="me-2">
+          <Button variant="primary" className="me-2" onClick={() => toast.info("New declarations must be uploaded via active solicitation folders.")}>
             <Plus size={16} className="me-2" />
             New declaration
           </Button>
@@ -375,7 +378,7 @@ const Declarations = () => {
             type: 'custom',
             label: 'AI Validation',
             onClick: (row) => {
-              console.log('AI Validation:', row.aiValidation);
+              handleViewDeclaration(row);
             }
           }
         ]}
@@ -384,6 +387,77 @@ const Declarations = () => {
         loading={false}
       />
     </ExecutiveCommandCenter>
+
+      {/* Details View Modal */}
+      <Modal show={showViewModal} onHide={() => { setShowViewModal(false); setSelectedDeclaration(null); }} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <FileText size={20} className="me-2 text-primary" />
+            Declaration Details - {selectedDeclaration?.title}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedDeclaration && (
+            <div className="declaration-view-details">
+              <Row className="mb-4">
+                <Col md={6}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <h6 className="text-muted mb-2">Attestation Summary</h6>
+                    <p className="mb-1"><strong>Type:</strong> {selectedDeclaration.type}</p>
+                    <p className="mb-1"><strong>Status:</strong> <Badge bg={selectedDeclaration.status === 'Valid' ? 'success' : selectedDeclaration.status === 'Expired' ? 'danger' : 'warning'}>{selectedDeclaration.status}</Badge></p>
+                    <p className="mb-1"><strong>Tender Reference:</strong> {selectedDeclaration.tenderId}</p>
+                    <p className="mb-0"><strong>Client:</strong> {selectedDeclaration.client}</p>
+                  </div>
+                </Col>
+                <Col md={6}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <h6 className="text-muted mb-2">Submission & Validity</h6>
+                    <p className="mb-1"><strong>Submitted By:</strong> {selectedDeclaration.submittedBy}</p>
+                    <p className="mb-1"><strong>Submitted Date:</strong> {selectedDeclaration.submittedDate}</p>
+                    <p className="mb-1"><strong>Expiry Date:</strong> {selectedDeclaration.expiryDate}</p>
+                    <p className="mb-0"><strong>Compliance score:</strong> {selectedDeclaration.complianceScore}%</p>
+                  </div>
+                </Col>
+              </Row>
+              <Row className="mb-4">
+                <Col md={12}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <h6 className="text-muted mb-2">Description</h6>
+                    <p className="mb-0">{selectedDeclaration.description}</p>
+                  </div>
+                </Col>
+              </Row>
+              <Row>
+                <Col md={12}>
+                  <div className="p-3 border rounded bg-light">
+                    <h6 className="text-muted mb-2">AI Assurance</h6>
+                    <Alert variant={selectedDeclaration.status === 'Valid' ? 'success' : selectedDeclaration.status === 'Expired' ? 'danger' : 'warning'} className="mb-0 d-flex align-items-center">
+                      <Brain size={16} className="me-2 text-primary" />
+                      <div>
+                        <strong>AI Validation Status:</strong> {selectedDeclaration.aiValidation} • 
+                        <strong> Model Confidence:</strong> {selectedDeclaration.aiConfidence}%
+                      </div>
+                    </Alert>
+                  </div>
+                </Col>
+              </Row>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => { setShowViewModal(false); setSelectedDeclaration(null); }}>
+            Close
+          </Button>
+          <Button variant="primary" onClick={() => {
+            setShowViewModal(false);
+            handleEditDeclaration(selectedDeclaration);
+          }}>
+            <Edit size={16} className="me-2" />
+            Edit Declaration
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    </>
   )
 }
 

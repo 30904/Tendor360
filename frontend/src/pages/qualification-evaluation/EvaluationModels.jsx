@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
+import { toast } from 'react-toastify'
 import './EvaluationModels.scss'
 
 const EvaluationModels = () => {
@@ -154,15 +155,31 @@ const EvaluationModels = () => {
   }
 
   const handleCreateModel = () => {
-    if (window.confirm('Are you sure you want to create a new evaluation model?')) {
-      // Implementation for creating new evaluation model
-      console.log('Creating new evaluation model...')
+    const newId = evaluationModels.length ? Math.max(...evaluationModels.map(m => m.id)) + 1 : 1
+    const dummyModel = {
+      id: newId,
+      name: `Evaluation Model ${newId}`,
+      description: 'AI-generated evaluation model for commercial proposals.',
+      type: 'Weighted',
+      criteria: [
+        { name: 'Technical Quality', weight: 60, score: 90 },
+        { name: 'Cost competitiveness', weight: 40, score: 85 }
+      ],
+      totalWeight: 100,
+      aiOptimization: 'Optimized for high-yield tenders',
+      aiConfidence: 94,
+      successRate: 88,
+      avgScore: 88,
+      complexity: 'Low',
+      usage: 'Low',
+      lastUsed: new Date().toISOString().split('T')[0]
     }
+    setEvaluationModels(prev => [dummyModel, ...prev])
+    toast.success(`Successfully initialized model "${dummyModel.name}"!`)
   }
 
   const handleEditModel = (model) => {
-    console.log('Edit model:', model)
-    // Navigate to edit model or open edit modal
+    toast.info(`Editing model "${model.name}" is locked.`)
   }
 
   const handleDeleteModel = (model) => {
@@ -536,7 +553,10 @@ const EvaluationModels = () => {
             <Button variant="secondary" onClick={() => setShowModal(false)}>
               Close
             </Button>
-            <Button variant="primary">
+            <Button variant="primary" onClick={() => {
+              setShowModal(false);
+              handleEditModel(selectedModel);
+            }}>
               <Edit size={16} className="me-2" />
               Edit Model
             </Button>

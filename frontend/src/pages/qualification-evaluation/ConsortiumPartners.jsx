@@ -5,6 +5,7 @@ import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
 import { Plus, Edit, Trash2, Eye, Users, Building, Handshake, Brain, CheckCircle, TrendingUp } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
+import { toast } from 'react-toastify'
 import './ConsortiumPartners.scss'
 
 const ConsortiumPartners = () => {
@@ -172,8 +173,7 @@ const ConsortiumPartners = () => {
   }
 
   const handleEditConsortium = (consortium) => {
-    console.log('Edit consortium:', consortium)
-    // Navigate to edit consortium or open edit modal
+    toast.info(`Editing consortium "${consortium.name}" is locked.`)
   }
 
   const handleDeleteConsortium = (consortium) => {
@@ -281,10 +281,30 @@ const ConsortiumPartners = () => {
   ]
 
   const handleCreateConsortium = () => {
-    if (window.confirm('Are you sure you want to create a new consortium?')) {
-      // Implementation for creating new consortium
-      console.log('Creating new consortium...')
+    const newId = consortiums.length ? Math.max(...consortiums.map(c => c.id)) + 1 : 1
+    const dummyConsortium = {
+      id: newId,
+      name: `Joint Venture Partners Group ${newId}`,
+      description: 'Newly registered consortium vehicle for upcoming public utility bids.',
+      type: 'Strategic',
+      status: 'Forming',
+      leadPartner: 'ABC Construction Ltd.',
+      partners: [
+        { name: 'ABC Construction Ltd.', role: 'Lead Partner', expertise: 'General Construction', contribution: 60 },
+        { name: 'Partner Technology Corp.', role: 'Technical Partner', expertise: 'Integration', contribution: 40 }
+      ],
+      totalPartners: 2,
+      totalContribution: 100,
+      aiAssessment: 'Strong synergy between partners, minimal overlap.',
+      aiConfidence: 90,
+      successRate: 85,
+      avgProjectValue: 12000000,
+      riskLevel: 'Low',
+      establishedDate: new Date().toISOString().split('T')[0],
+      lastProject: 'N/A'
     }
+    setConsortiums(prev => [dummyConsortium, ...prev])
+    toast.success(`Successfully initialized consortium "${dummyConsortium.name}"!`)
   }
 
   const getStatusBadge = (status) => {
@@ -540,7 +560,10 @@ const ConsortiumPartners = () => {
             <Button variant="secondary" onClick={() => setShowModal(false)}>
               Close
             </Button>
-            <Button variant="primary">
+            <Button variant="primary" onClick={() => {
+              setShowModal(false);
+              handleEditConsortium(selectedConsortium);
+            }}>
               <Edit size={16} className="me-2" />
               Edit Consortium
             </Button>

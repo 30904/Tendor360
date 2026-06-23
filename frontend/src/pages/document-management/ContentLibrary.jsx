@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Row, Col, Button, Badge, Modal } from 'react-bootstrap'
+import { Row, Col, Button, Badge, Modal, Form } from 'react-bootstrap'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
 import { Plus, Edit, Upload, Download, FileStack, CheckCircle, FolderOpen } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
+import { toast } from 'react-toastify'
 import './ContentLibrary.scss'
 
 const ContentLibrary = () => {
@@ -13,6 +14,17 @@ const ContentLibrary = () => {
   const [loading, setLoading] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [selectedDocument, setSelectedDocument] = useState(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [formData, setFormData] = useState({
+    name: '',
+    type: 'PDF',
+    size: '1.0 MB',
+    category: 'Technical',
+    status: 'Active',
+    uploadedBy: 'Admin',
+    uploadedDate: new Date().toISOString().split('T')[0],
+    tags: []
+  })
 
   useEffect(() => {
     setDocuments([
@@ -169,13 +181,56 @@ const ContentLibrary = () => {
   }
 
   const handleEditDocument = (document) => {
-    console.log('Edit document:', document)
+    setSelectedDocument(document)
+    setFormData({
+      ...document
+    })
+    setShowEditModal(true)
   }
 
   const handleDeleteDocument = (document) => {
     if (window.confirm(`Are you sure you want to delete "${document.name}"?`)) {
       setDocuments(prev => prev.filter(doc => doc.id !== document.id))
+      toast.success(`Successfully deleted document "${document.name}"!`)
     }
+  }
+
+  const handleCreateDocument = () => {
+    setSelectedDocument(null)
+    setFormData({
+      name: '',
+      type: 'PDF',
+      size: '1.2 MB',
+      category: 'Technical',
+      status: 'Active',
+      uploadedBy: 'John Doe',
+      uploadedDate: new Date().toISOString().split('T')[0],
+      tags: []
+    })
+    setShowEditModal(true)
+  }
+
+  const handleSaveDocument = (e) => {
+    e.preventDefault()
+    if (!formData.name || !formData.category) {
+      toast.error('Please fill in all required fields.')
+      return
+    }
+
+    if (selectedDocument) {
+      setDocuments(prev => prev.map(d => d.id === selectedDocument.id ? { ...d, ...formData } : d))
+      toast.success(`Successfully updated document "${formData.name}"!`)
+    } else {
+      const newId = documents.length ? Math.max(...documents.map(d => d.id)) + 1 : 1
+      const newDoc = {
+        id: newId,
+        ...formData
+      }
+      setDocuments(prev => [newDoc, ...prev])
+      toast.success(`Successfully added document "${formData.name}" to Content Library!`)
+    }
+
+    setShowEditModal(false)
   }
 
   const getStatusBadge = (status) => {
@@ -340,11 +395,11 @@ const ContentLibrary = () => {
         tableTitle={`Documents (${documents.length})`}
         tableActions={(
           <>
-            <Button variant="outline-primary" className="me-2">
+            <Button variant="outline-primary" className="me-2" onClick={handleCreateDocument}>
               <Upload size={18} className="me-2" />
               Upload
             </Button>
-            <Button variant="primary">
+            <Button variant="primary" onClick={handleCreateDocument}>
               <Plus size={18} className="me-2" />
               Add document
             </Button>
@@ -370,7 +425,7 @@ const ContentLibrary = () => {
               type: 'custom',
               label: 'Download',
               onClick: (row) => {
-                console.log('Download document:', row.name)
+                toast.success(`Starting download for "${row.name}.${row.type.toLowerCase()}"...`)
               }
             }
           ]}
@@ -438,11 +493,100 @@ const ContentLibrary = () => {
           <Button variant="secondary" onClick={() => setShowModal(false)}>
             Close
           </Button>
-          <Button variant="primary">
+          <Button variant="primary" onClick={() => {
+            setShowModal(false);
+            toast.success(`Starting download for "${selectedDocument.name}.${selectedDocument.type.toLowerCase()}"...`);
+          }}>
             <Download size={16} className="me-2" />
             Download
           </Button>
         </Modal.Footer>
+      </Modal>
+
+      {/* Edit/Create Modal */}
+      <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            {selectedDocument ? 'Edit Document Details' : 'Add New Document to Library'}
+          </Modal.Title>
+        </Modal.Header>
+        <Form onSubmit={handleSaveDocument}>
+          <Modal.Body>
+            <Form.Group className="mb-3">
+              <Form.Label>Document Name *</Form.Label>
+              <Form.Control
+                type="text"
+                required
+                value={formData.name}
+                onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="e.g. Technical Proposal Specification"
+              />
+            </Form.Group>
+            <Row className="mb-3">
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Category *</Form.Label>
+                  <Form.Select
+                    value={formData.category}
+                    onChange={e => setFormData(prev => ({ ...prev, category: e.target.value }))}
+                  >
+                    <option value="Technical">Technical</option>
+                    <option value="Template">Template</option>
+                    <option value="Compliance">Compliance</option>
+                    <option value="Financial">Financial</option>
+                    <option value="Legal">Legal</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Status</Form.Label>
+                  <Form.Select
+                    value={formData.status}
+                    onChange={e => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Draft">Draft</option>
+                    <option value="Archived">Archived</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+            </Row>
+            <Row className="mb-3">
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>File Type</Form.Label>
+                  <Form.Select
+                    value={formData.type}
+                    onChange={e => setFormData(prev => ({ ...prev, type: e.target.value }))}
+                  >
+                    <option value="PDF">PDF (Portable Document Format)</option>
+                    <option value="DOCX">DOCX (Word Document)</option>
+                    <option value="XLSX">XLSX (Excel Spreadsheet)</option>
+                    <option value="PPTX">PPTX (PowerPoint Presentation)</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Tags (comma separated)</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={formData.tags.join(', ')}
+                    onChange={e => setFormData(prev => ({ ...prev, tags: e.target.value.split(',').map(tag => tag.trim()) }))}
+                    placeholder="e.g. specification, draft, final"
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowEditModal(false)}>Cancel</Button>
+            <Button variant="primary" type="submit">
+              {selectedDocument ? 'Save Changes' : 'Upload & Add'}
+            </Button>
+          </Modal.Footer>
+        </Form>
       </Modal>
     </>
   )

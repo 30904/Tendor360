@@ -64,6 +64,27 @@ const PostAwardTracker = () => {
       description: 'Transition to execution with RACI and assets.',
       path: '/post-award-tracker/handover-delivery',
       color: 'info'
+    },
+    {
+      id: 'handover',
+      title: 'Project Handover',
+      description: 'Manage the transition from bidding to operational handover.',
+      path: '/post-award-tracker/handover',
+      color: 'primary'
+    },
+    {
+      id: 'guarantees-deposits',
+      title: 'Guarantees & Deposits',
+      description: 'Manage guarantees and security deposits after award with lifecycle tracking.',
+      path: '/post-award-tracker/guarantees-deposits',
+      color: 'success'
+    },
+    {
+      id: 'obligations-slas',
+      title: 'Obligations & SLAs',
+      description: 'Track post-award contractual obligations and SLA targets.',
+      path: '/post-award-tracker/obligations-slas',
+      color: 'warning'
     }
   ]
 

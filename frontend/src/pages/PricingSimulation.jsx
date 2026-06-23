@@ -71,6 +71,13 @@ const PricingSimulation = () => {
       description: 'Milestone-aligned cash projections and waterfalls.',
       path: '/pricing-simulation/cashflow',
       color: 'primary'
+    },
+    {
+      id: 'fx-taxes',
+      title: 'FX & Taxes',
+      description: 'Foreign exchange impact and tax simulation overlays.',
+      path: '/pricing-simulation/fx-taxes',
+      color: 'success'
     }
   ]
 

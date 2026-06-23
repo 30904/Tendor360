@@ -1,16 +1,35 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Row, Col, Button, Badge, ProgressBar } from 'react-bootstrap'
+import { Row, Col, Button, Badge, ProgressBar, Modal, Form } from 'react-bootstrap'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
-import { Plus, FileText, Download, Brain, CheckCircle, Clock, Building } from 'lucide-react'
+import { Plus, FileText, Download, Brain, CheckCircle, Clock, Building, Edit } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
+import { toast } from 'react-toastify'
 import './SubmissionBuilder.scss'
 
 const SubmissionBuilder = () => {
   const navigate = useNavigate()
   const [submissions, setSubmissions] = useState([])
   const [loading, setLoading] = useState(false)
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [selectedSubmission, setSelectedSubmission] = useState(null)
+
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    status: 'Draft',
+    progress: 0,
+    tenderId: '',
+    client: '',
+    dueDate: new Date().toISOString().split('T')[0],
+    documents: 0,
+    completed: 0,
+    pending: 0,
+    aiScore: 70,
+    aiRecommendations: []
+  })
 
   useEffect(() => {
     setSubmissions([
@@ -226,18 +245,75 @@ const SubmissionBuilder = () => {
     return items.slice(0, 3)
   }, [stats])
 
+  const handleViewSubmission = (submission) => {
+    setSelectedSubmission(submission)
+    setShowViewModal(true)
+  }
+
   const handleEditSubmission = (submission) => {
-    console.log('Edit submission:', submission)
+    setSelectedSubmission(submission)
+    setFormData({
+      ...submission
+    })
+    setShowEditModal(true)
   }
 
   const handleDeleteSubmission = (submission) => {
     if (window.confirm(`Are you sure you want to delete submission "${submission.name}"?`)) {
       setSubmissions(prev => prev.filter(s => s.id !== submission.id))
+      toast.success(`Successfully deleted submission "${submission.name}"!`)
     }
   }
 
-  const handleViewSubmission = (submission) => {
-    console.log('View submission:', submission)
+  const handleCreateSubmission = () => {
+    setSelectedSubmission(null)
+    setFormData({
+      name: '',
+      description: '',
+      status: 'Draft',
+      progress: 0,
+      tenderId: '',
+      client: '',
+      dueDate: new Date().toISOString().split('T')[0],
+      documents: 5,
+      completed: 0,
+      pending: 5,
+      aiScore: 70,
+      aiRecommendations: ['Add core technical templates']
+    })
+    setShowEditModal(true)
+  }
+
+  const handleSaveSubmission = (e) => {
+    e.preventDefault()
+    if (!formData.name || !formData.client || !formData.tenderId) {
+      toast.error('Please fill in all required fields.')
+      return
+    }
+
+    const calculatedProgress = formData.documents > 0 ? Math.round((formData.completed / formData.documents) * 100) : 0
+
+    const updatedData = {
+      ...formData,
+      progress: calculatedProgress,
+      lastModified: new Date().toISOString().split('T')[0]
+    }
+
+    if (selectedSubmission) {
+      setSubmissions(prev => prev.map(s => s.id === selectedSubmission.id ? { ...s, ...updatedData } : s))
+      toast.success(`Successfully updated submission "${formData.name}"!`)
+    } else {
+      const newId = submissions.length ? Math.max(...submissions.map(s => s.id)) + 1 : 1
+      const newSub = {
+        id: newId,
+        ...updatedData,
+        createdDate: new Date().toISOString().split('T')[0]
+      }
+      setSubmissions(prev => [newSub, ...prev])
+      toast.success(`Successfully initialized new submission package "${formData.name}"!`)
+    }
+
+    setShowEditModal(false)
   }
 
   const columns = [
@@ -349,6 +425,7 @@ const SubmissionBuilder = () => {
   }
 
   return (
+    <>
     <ExecutiveCommandCenter
       className="submission-builder-page"
       showSkeleton={loading && !submissions.length}
@@ -423,11 +500,11 @@ const SubmissionBuilder = () => {
       tableTitle={`Submission packages (${submissions.length})`}
       tableActions={(
         <>
-          <Button variant="outline-secondary" className="me-2">
+          <Button variant="outline-secondary" className="me-2" onClick={() => toast.success("Submission registry exported successfully!")}>
             <Download size={16} className="me-2" />
             Export
           </Button>
-          <Button variant="primary">
+          <Button variant="primary" onClick={handleCreateSubmission}>
             <Plus size={16} className="me-2" />
             New submission
           </Button>
@@ -453,7 +530,7 @@ const SubmissionBuilder = () => {
             type: 'custom',
             label: 'Download',
             onClick: (row) => {
-              console.log('Download submission:', row.name)
+              toast.success(`Starting download for submission package "${row.name}"...`)
             }
           }
         ]}
@@ -462,7 +539,231 @@ const SubmissionBuilder = () => {
         loading={loading}
       />
     </ExecutiveCommandCenter>
-  )
+
+    {/* View Submission Modal */}
+    <Modal show={showViewModal} onHide={() => setShowViewModal(false)} size="lg">
+      <Modal.Header closeButton>
+        <Modal.Title className="d-flex align-items-center">
+          <FileText size={20} className="me-2 text-primary" />
+          Submission Details
+        </Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        {selectedSubmission && (
+          <div className="p-2">
+            <h5 className="mb-3 text-primary">{selectedSubmission.name}</h5>
+            <Row className="mb-3">
+              <Col md={6}>
+                <strong>Client:</strong> {selectedSubmission.client}
+              </Col>
+              <Col md={6}>
+                <strong>Tender ID:</strong> {selectedSubmission.tenderId}
+              </Col>
+            </Row>
+            <Row className="mb-3">
+              <Col md={6}>
+                <strong>Status:</strong> {getStatusBadge(selectedSubmission.status)}
+              </Col>
+              <Col md={6}>
+                <strong>Due Date:</strong> {new Date(selectedSubmission.dueDate).toLocaleDateString()}
+              </Col>
+            </Row>
+            <Row className="mb-3">
+              <Col md={4}>
+                <strong>Total Documents:</strong> {selectedSubmission.documents}
+              </Col>
+              <Col md={4}>
+                <strong>Completed:</strong> {selectedSubmission.completed}
+              </Col>
+              <Col md={4}>
+                <strong>Pending:</strong> {selectedSubmission.pending}
+              </Col>
+            </Row>
+            <div className="mb-3">
+              <strong>Assembly Progress:</strong>
+              <ProgressBar
+                now={selectedSubmission.progress}
+                label={`${selectedSubmission.progress}%`}
+                variant={selectedSubmission.progress === 100 ? 'success' : selectedSubmission.progress >= 75 ? 'info' : 'warning'}
+                className="mt-1"
+              />
+            </div>
+            <hr />
+            <Row className="mb-3">
+              <Col md={6}>
+                <strong>Created By:</strong> {selectedSubmission.createdBy}
+              </Col>
+              <Col md={6}>
+                <strong>Last Modified:</strong> {selectedSubmission.lastModified}
+              </Col>
+            </Row>
+            <hr />
+            <div>
+              <h6>AI Quality Rating & Advice</h6>
+              <Alert variant="info" className="d-flex align-items-start mt-2">
+                <Brain size={18} className="me-2 mt-1 flex-shrink-0" />
+                <div>
+                  <div><strong>AI Quality Index:</strong> {selectedSubmission.aiScore}%</div>
+                  <div className="mt-2"><strong>Recommendations:</strong></div>
+                  <ul className="mb-0 mt-1">
+                    {selectedSubmission.aiRecommendations.map((rec, index) => (
+                      <li key={index}>{rec}</li>
+                    ))}
+                  </ul>
+                </div>
+              </Alert>
+            </div>
+          </div>
+        )}
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="secondary" onClick={() => setShowViewModal(false)}>Close</Button>
+        {selectedSubmission && (
+          <>
+            <Button variant="outline-primary" onClick={() => {
+              setShowViewModal(false);
+              toast.success(`Starting download for submission "${selectedSubmission.name}"...`);
+            }}>
+              <Download size={16} className="me-2" />
+              Download Package
+            </Button>
+            <Button variant="primary" onClick={() => {
+              setShowViewModal(false);
+              handleEditSubmission(selectedSubmission);
+            }}>
+              <Edit size={16} className="me-2" />
+              Edit Package
+            </Button>
+          </>
+        )}
+      </Modal.Footer>
+    </Modal>
+
+    {/* Edit/Create Modal */}
+    <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="lg">
+      <Modal.Header closeButton>
+        <Modal.Title>
+          {selectedSubmission ? 'Edit Submission Details' : 'New Submission Package'}
+        </Modal.Title>
+      </Modal.Header>
+      <Form onSubmit={handleSaveSubmission}>
+        <Modal.Body>
+          <Form.Group className="mb-3">
+            <Form.Label>Submission Name *</Form.Label>
+            <Form.Control
+              type="text"
+              required
+              value={formData.name}
+              onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="e.g. Highway Infrastructure Tender Submission"
+            />
+          </Form.Group>
+          <Form.Group className="mb-3">
+            <Form.Label>Description</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={2}
+              value={formData.description}
+              onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
+            />
+          </Form.Group>
+          <Row className="mb-3">
+            <Col md={6}>
+              <Form.Group>
+                <Form.Label>Client *</Form.Label>
+                <Form.Control
+                  type="text"
+                  required
+                  value={formData.client}
+                  onChange={e => setFormData(prev => ({ ...prev, client: e.target.value }))}
+                  placeholder="e.g. Ministry of Transport"
+                />
+              </Form.Group>
+            </Col>
+            <Col md={6}>
+              <Form.Group>
+                <Form.Label>Tender ID *</Form.Label>
+                <Form.Control
+                  type="text"
+                  required
+                  value={formData.tenderId}
+                  onChange={e => setFormData(prev => ({ ...prev, tenderId: e.target.value }))}
+                  placeholder="e.g. TEN-2024-001"
+                />
+              </Form.Group>
+            </Col>
+          </Row>
+          <Row className="mb-3">
+            <Col md={6}>
+              <Form.Group>
+                <Form.Label>Status</Form.Label>
+                <Form.Select
+                  value={formData.status}
+                  onChange={e => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                >
+                  <option value="Draft">Draft</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Review">Review</option>
+                  <option value="Submitted">Submitted</option>
+                  <option value="Rejected">Rejected</option>
+                </Form.Select>
+              </Form.Group>
+            </Col>
+            <Col md={6}>
+              <Form.Group>
+                <Form.Label>Due Date *</Form.Label>
+                <Form.Control
+                  type="date"
+                  required
+                  value={formData.dueDate}
+                  onChange={e => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
+                />
+              </Form.Group>
+            </Col>
+          </Row>
+          <Row className="mb-3">
+            <Col md={4}>
+              <Form.Group>
+                <Form.Label>Total Documents</Form.Label>
+                <Form.Control
+                  type="number"
+                  value={formData.documents}
+                  onChange={e => setFormData(prev => ({ ...prev, documents: parseInt(e.target.value) || 0 }))}
+                />
+              </Form.Group>
+            </Col>
+            <Col md={4}>
+              <Form.Group>
+                <Form.Label>Completed Documents</Form.Label>
+                <Form.Control
+                  type="number"
+                  value={formData.completed}
+                  onChange={e => setFormData(prev => ({ ...prev, completed: parseInt(e.target.value) || 0 }))}
+                />
+              </Form.Group>
+            </Col>
+            <Col md={4}>
+              <Form.Group>
+                <Form.Label>Pending Documents</Form.Label>
+                <Form.Control
+                  type="number"
+                  value={formData.pending}
+                  onChange={e => setFormData(prev => ({ ...prev, pending: parseInt(e.target.value) || 0 }))}
+                />
+              </Form.Group>
+            </Col>
+          </Row>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowEditModal(false)}>Cancel</Button>
+          <Button variant="primary" type="submit">
+            {selectedSubmission ? 'Save Changes' : 'Initialize Package'}
+          </Button>
+        </Modal.Footer>
+      </Form>
+    </Modal>
+  </>
+)
 }
 
 export default SubmissionBuilder

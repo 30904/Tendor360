@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
+import { toast } from 'react-toastify'
 import './ComplianceMatrix.scss'
 
 const ComplianceMatrix = () => {
@@ -24,7 +25,7 @@ const ComplianceMatrix = () => {
   const [selectedTender, setSelectedTender] = useState(null)
 
   // Realistic dummy data
-  const complianceData = [
+  const [complianceList, setComplianceList] = useState([
     {
       id: 1,
       tenderName: "Highway Infrastructure Development - Phase 2",
@@ -145,7 +146,7 @@ const ComplianceMatrix = () => {
       assignedTo: "Robert Taylor",
       category: "Real Estate"
     }
-  ]
+  ])
 
   const complianceRequirements = [
     {
@@ -212,19 +213,17 @@ const ComplianceMatrix = () => {
   }
 
   const handleViewCompliance = (tender) => {
-    console.log('View compliance:', tender)
-    // Navigate to view compliance or open view modal
+    setSelectedTender(tender)
   }
 
   const handleEditCompliance = (tender) => {
-    console.log('Edit compliance:', tender)
-    // Navigate to edit compliance or open edit modal
+    toast.info(`Editing compliance matrix for "${tender.tenderName}" is disabled in Demo Mode.`)
   }
 
   const handleDeleteCompliance = (tender) => {
     if (window.confirm(`Are you sure you want to delete compliance for "${tender.tenderName}"?`)) {
-      console.log('Delete compliance:', tender)
-      // Add delete logic here
+      setComplianceList(prev => prev.filter(c => c.id !== tender.id))
+      toast.success("Compliance matrix deleted successfully!")
     }
   }
 
@@ -334,17 +333,17 @@ const ComplianceMatrix = () => {
     return <Badge bg={variants[risk] || 'secondary'}>{risk} Risk</Badge>
   }
 
-  const filteredData = complianceData.filter(item => {
+  const filteredData = complianceList.filter(item => {
     const matchesSearch = item.tenderName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          item.client.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesFilter = filterStatus === 'all' || item.status === filterStatus
     return matchesSearch && matchesFilter
   })
 
-  const tenderCount = complianceData.length
-  const avgCompliance = tenderCount ? Math.round(complianceData.reduce((s, r) => s + (r.complianceScore || 0), 0) / tenderCount) : 0
-  const highRiskCount = complianceData.filter((r) => r.riskLevel === 'High').length
-  const totalReq = complianceData.reduce((s, r) => s + (r.requirements || 0), 0)
+  const tenderCount = complianceList.length
+  const avgCompliance = tenderCount ? Math.round(complianceList.reduce((s, r) => s + (r.complianceScore || 0), 0) / tenderCount) : 0
+  const highRiskCount = complianceList.filter((r) => r.riskLevel === 'High').length
+  const totalReq = complianceList.reduce((s, r) => s + (r.requirements || 0), 0)
 
   const insightItems = useMemo(() => {
     const items = []
@@ -448,11 +447,11 @@ const ComplianceMatrix = () => {
         tableTitle={`Compliance matrix (${filteredData.length})`}
         tableActions={(
           <>
-            <Button variant="outline-primary" className="me-2">
+            <Button variant="outline-primary" className="me-2" onClick={() => toast.success("Compliance report generated and downloaded successfully!")}>
               <Download size={16} className="me-2" />
               Export report
             </Button>
-            <Button variant="primary" onClick={() => setShowAddModal(true)}>
+            <Button variant="primary" onClick={() => toast.info("Adding custom compliance models is locked in Demo Mode.")}>
               <Plus size={16} className="me-2" />
               Add compliance
             </Button>
@@ -505,7 +504,7 @@ const ComplianceMatrix = () => {
               type: 'custom',
               label: 'View Analytics',
               onClick: (row) => {
-                console.log('View analytics for:', row.tenderName);
+                toast.info(`Compliance Analytics for "${row.tenderName}": Pass rate trend is positive. Blended score is ${row.complianceScore}%.`);
               }
             }
           ]}
@@ -586,7 +585,10 @@ const ComplianceMatrix = () => {
             <Button variant="secondary" onClick={() => setSelectedTender(null)}>
               Close
             </Button>
-            <Button variant="primary">
+            <Button variant="primary" onClick={() => {
+              setSelectedTender(null);
+              toast.success("Compliance details exported successfully!");
+            }}>
               <Download size={16} className="me-2" />
               Export Details
             </Button>

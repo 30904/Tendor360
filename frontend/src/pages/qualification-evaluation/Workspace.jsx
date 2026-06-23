@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Row, Col, Button, Badge } from 'react-bootstrap'
+import { Row, Col, Button, Badge, Modal, ProgressBar, Alert } from 'react-bootstrap'
 import { Briefcase, Plus, Edit, Trash2, Users, Clock, CheckCircle, AlertTriangle, Settings, Brain, Target } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'react-toastify'
 import DataTable from '../../components/DataTable'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
@@ -11,6 +12,8 @@ const Workspace = () => {
   const navigate = useNavigate()
   const [workspaces, setWorkspaces] = useState([])
   const [stats, setStats] = useState({})
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [selectedWorkspaceForView, setSelectedWorkspaceForView] = useState(null)
 
   useEffect(() => {
     setWorkspaces([
@@ -143,13 +146,12 @@ const Workspace = () => {
   }, [])
 
   const handleViewWorkspace = (workspace) => {
-    console.log('View workspace:', workspace)
-    // Navigate to view workspace or open view modal
+    setSelectedWorkspaceForView(workspace)
+    setShowViewModal(true)
   }
 
   const handleEditWorkspace = (workspace) => {
-    console.log('Edit workspace:', workspace)
-    // Navigate to edit workspace or open edit modal
+    toast.info(`Editing workspace "${workspace.name}" is disabled in Demo Mode.`)
   }
 
   const handleDeleteWorkspace = (workspace) => {
@@ -305,7 +307,8 @@ const Workspace = () => {
   }, [stats])
 
   return (
-    <ExecutiveCommandCenter
+    <>
+      <ExecutiveCommandCenter
       className="workspace-page"
       breadcrumbs={[
         { label: 'Qualification & Evaluation', onClick: () => navigate('/qualification-evaluation') },
@@ -375,11 +378,11 @@ const Workspace = () => {
       tableTitle={`Evaluation workspaces (${workspaces.length})`}
       tableActions={(
         <>
-          <Button variant="primary" className="me-2">
+          <Button variant="primary" className="me-2" onClick={() => toast.info("Creating workspaces is disabled in Demo Mode. Custom workspaces are synchronized from active solicitation runs.")}>
             <Plus size={16} className="me-2" />
             New workspace
           </Button>
-          <Button variant="outline-secondary">
+          <Button variant="outline-secondary" onClick={() => toast.info("Workspace management features are coming soon.")}>
             <Settings size={16} className="me-2" />
             Manage
           </Button>
@@ -405,7 +408,7 @@ const Workspace = () => {
             type: 'custom',
             label: 'View Progress',
             onClick: (row) => {
-              console.log('View Progress:', row);
+              handleViewWorkspace(row);
             }
           }
         ]}
@@ -414,6 +417,94 @@ const Workspace = () => {
         loading={false}
       />
     </ExecutiveCommandCenter>
+
+      {/* View Workspace Details Modal */}
+      <Modal show={showViewModal} onHide={() => { setShowViewModal(false); setSelectedWorkspaceForView(null); }} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <Briefcase size={20} className="me-2 text-primary" />
+            Workspace Details - {selectedWorkspaceForView?.name}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedWorkspaceForView && (
+            <div className="workspace-view-details">
+              <Row className="mb-4">
+                <Col md={6}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <h6 className="text-muted mb-2">Basic Info</h6>
+                    <p className="mb-1"><strong>Type:</strong> {selectedWorkspaceForView.type}</p>
+                    <p className="mb-1"><strong>Status:</strong> <Badge bg={selectedWorkspaceForView.status === 'Active' ? 'success' : 'secondary'}>{selectedWorkspaceForView.status}</Badge></p>
+                    <p className="mb-1"><strong>Priority:</strong> <Badge bg={selectedWorkspaceForView.priority === 'High' ? 'danger' : 'info'}>{selectedWorkspaceForView.priority}</Badge></p>
+                    <p className="mb-0"><strong>Participants:</strong> {selectedWorkspaceForView.participants} members</p>
+                  </div>
+                </Col>
+                <Col md={6}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <h6 className="text-muted mb-2">Timeline & Ownership</h6>
+                    <p className="mb-1"><strong>Created By:</strong> {selectedWorkspaceForView.createdBy}</p>
+                    <p className="mb-1"><strong>Created Date:</strong> {selectedWorkspaceForView.createdDate}</p>
+                    <p className="mb-1"><strong>Last Activity:</strong> {selectedWorkspaceForView.lastActivity}</p>
+                    <p className="mb-0"><strong>Due Date:</strong> {selectedWorkspaceForView.dueDate}</p>
+                  </div>
+                </Col>
+              </Row>
+              <Row className="mb-4">
+                <Col md={12}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <h6 className="text-muted mb-2">Progress</h6>
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                      <span className="fw-bold">{selectedWorkspaceForView.progress}% Completed</span>
+                      <small className="text-muted">{selectedWorkspaceForView.tasksCompleted} of {selectedWorkspaceForView.totalTasks} tasks finished</small>
+                    </div>
+                    <ProgressBar
+                      now={selectedWorkspaceForView.progress}
+                      variant={selectedWorkspaceForView.progress >= 70 ? 'success' : selectedWorkspaceForView.progress >= 40 ? 'warning' : 'danger'}
+                      style={{ height: '10px' }}
+                    />
+                  </div>
+                </Col>
+              </Row>
+              <Row>
+                <Col md={12}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <h6 className="text-muted mb-2">Description</h6>
+                    <p className="mb-0">{selectedWorkspaceForView.description}</p>
+                  </div>
+                </Col>
+              </Row>
+              <Row>
+                <Col md={12}>
+                  <div className="p-3 border rounded bg-light">
+                    <h6 className="text-muted mb-2">AI Optimization Stance</h6>
+                    <Alert variant="info" className="mb-0 d-flex align-items-center">
+                      <Brain size={16} className="me-2 text-primary" />
+                      <div>
+                        <strong>AI Optimization:</strong> {selectedWorkspaceForView.aiOptimization} • 
+                        <strong> Model Confidence:</strong> {selectedWorkspaceForView.aiConfidence}% • 
+                        <strong> Risk level:</strong> <Badge bg={selectedWorkspaceForView.riskLevel === 'Low' ? 'success' : 'warning'}>{selectedWorkspaceForView.riskLevel}</Badge>
+                      </div>
+                    </Alert>
+                  </div>
+                </Col>
+              </Row>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => { setShowViewModal(false); setSelectedWorkspaceForView(null); }}>
+            Close
+          </Button>
+          <Button variant="primary" onClick={() => {
+            setShowViewModal(false);
+            handleEditWorkspace(selectedWorkspaceForView);
+          }}>
+            <Edit size={16} className="me-2" />
+            Edit Workspace
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    </>
   )
 }
 

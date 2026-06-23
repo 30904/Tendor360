@@ -128,6 +128,8 @@ class AttachmentHarvestService {
             // TB-004 implementation fix: Do not create placeholder on fail, but let it throw so it counts as failure
             throw new Error(`Failed to download ${attachment.url}: ${err.message}`);
           }
+        } else if (attachment.url && attachment.url.startsWith('demo://')) {
+          mimeType = await createPlaceholderFile(destPath, attachment.name || 'Demo document');
         } else {
            throw new Error(`Invalid attachment URL: ${attachment.url}`);
         }

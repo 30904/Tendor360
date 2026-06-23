@@ -6,6 +6,7 @@ import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
 import { Plus, PenTool, Brain, CheckCircle, FileText, Send, Users } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
+import { toast } from 'react-toastify'
 import './ESignPackages.scss'
 import { dummyEsignPackagePrefill } from '../../utils/testFormDummies'
 
@@ -17,6 +18,8 @@ const ESignPackages = () => {
   const [editingPackage, setEditingPackage] = useState(null)
   const [prefillSnapshot, setPrefillSnapshot] = useState(null)
   const [modalFormKey, setModalFormKey] = useState(0)
+  const [selectedPackage, setSelectedPackage] = useState(null)
+  const [showViewModal, setShowViewModal] = useState(false)
 
   useEffect(() => {
     setPackages([
@@ -220,11 +223,67 @@ const ESignPackages = () => {
   const handleDeletePackage = (pkg) => {
     if (window.confirm(`Are you sure you want to delete package "${pkg.name}"?`)) {
       setPackages(prev => prev.filter(p => p.id !== pkg.id))
+      toast.success(`Successfully deleted package "${pkg.name}"!`)
     }
   }
 
   const handleViewPackage = (pkg) => {
-    console.log('View package:', pkg)
+    setSelectedPackage(pkg)
+    setShowViewModal(true)
+  }
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    const formEl = e.currentTarget
+    const name = formEl.elements.name.value
+    const dueDate = formEl.elements.dueDate.value
+    const description = formEl.elements.description.value
+    const recipientsRaw = formEl.elements.recipients.value || ''
+    const documentsRaw = formEl.elements.documents.value || ''
+    const aiOptimized = formEl.elements.aiOptimized.checked
+
+    const recipientsList = recipientsRaw.split('\n').map(r => r.trim()).filter(Boolean)
+    const documentsList = documentsRaw.split('\n').map(d => d.trim()).filter(Boolean)
+
+    if (editingPackage) {
+      setPackages(prev => prev.map(p => p.id === editingPackage.id ? {
+        ...p,
+        name,
+        dueDate,
+        description,
+        recipients: recipientsList.length,
+        recipientsList,
+        documents: documentsList.length,
+        documentsList,
+        aiOptimized,
+        lastActivity: new Date().toISOString().split('T')[0]
+      } : p))
+      toast.success(`Successfully updated eSign package "${name}"!`)
+    } else {
+      const nextId = packages.length ? Math.max(...packages.map(p => p.id), 0) + 1 : 1
+      const newPkg = {
+        id: nextId,
+        name,
+        dueDate,
+        description,
+        status: 'Draft',
+        progress: 0,
+        recipients: recipientsList.length,
+        recipientsList,
+        documents: documentsList.length,
+        documentsList,
+        signed: 0,
+        pending: documentsList.length,
+        aiOptimized,
+        completionRate: 0,
+        createdBy: 'Current User',
+        createdDate: new Date().toISOString().split('T')[0],
+        lastActivity: new Date().toISOString().split('T')[0]
+      }
+      setPackages(prev => [...prev, newPkg])
+      toast.success(`Successfully created eSign package "${name}"!`)
+    }
+    closeEsignModal()
   }
 
   const columns = [
@@ -414,7 +473,7 @@ const ESignPackages = () => {
         tableTitle={`eSign packages (${packages.length})`}
         tableActions={(
           <>
-            <Button variant="outline-secondary" className="me-2">
+            <Button variant="outline-secondary" className="me-2" onClick={() => toast.success('Sent outstanding reminders to all pending recipients!')}>
               <Send size={16} className="me-2" />
               Send reminders
             </Button>
@@ -444,7 +503,12 @@ const ESignPackages = () => {
               type: 'custom',
               label: 'Send Package',
               onClick: (row) => {
-                console.log('Send package:', row.name)
+                if (row.status === 'Completed') {
+                  toast.info(`Package "${row.name}" is already completed.`)
+                  return
+                }
+                setPackages(prev => prev.map(p => p.id === row.id ? { ...p, status: 'In Progress' } : p))
+                toast.success(`Successfully routed package "${row.name}" to recipients!`)
               }
             }
           ]}
@@ -473,29 +537,32 @@ const ESignPackages = () => {
             {editingPackage ? 'Edit eSign Package' : 'New eSign Package'}
           </Modal.Title>
         </Modal.Header>
-        <Form key={modalFormKey}>
+        <Form key={modalFormKey} onSubmit={handleSubmit}>
           <Modal.Body>
             <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Package Name</Form.Label>
                   <Form.Control
+                    name="name"
                     type="text"
                     placeholder="Enter package name"
                     defaultValue={formSeed.name || ''}
+                    required
                   />
                 </Form.Group>
               </Col>
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Due Date</Form.Label>
-                  <Form.Control type="date" defaultValue={formSeed.dueDate || ''} />
+                  <Form.Control name="dueDate" type="date" defaultValue={formSeed.dueDate || ''} required />
                 </Form.Group>
               </Col>
             </Row>
             <Form.Group className="mb-3">
               <Form.Label>Description</Form.Label>
               <Form.Control
+                name="description"
                 as="textarea"
                 rows={3}
                 placeholder="Enter package description"
@@ -507,10 +574,12 @@ const ESignPackages = () => {
                 <Form.Group className="mb-3">
                   <Form.Label>Recipients</Form.Label>
                   <Form.Control
+                    name="recipients"
                     as="textarea"
                     rows={4}
                     placeholder="Enter recipient emails (one per line)"
                     defaultValue={formSeed.recipients || ''}
+                    required
                   />
                 </Form.Group>
               </Col>
@@ -518,16 +587,19 @@ const ESignPackages = () => {
                 <Form.Group className="mb-3">
                   <Form.Label>Documents</Form.Label>
                   <Form.Control
+                    name="documents"
                     as="textarea"
                     rows={4}
                     placeholder="Enter document names (one per line)"
                     defaultValue={formSeed.documents || ''}
+                    required
                   />
                 </Form.Group>
               </Col>
             </Row>
             <Form.Group className="mb-3">
               <Form.Check
+                name="aiOptimized"
                 type="checkbox"
                 label="Enable AI optimization for signing workflow"
                 defaultChecked={formSeed.aiOptimized || false}
@@ -538,12 +610,99 @@ const ESignPackages = () => {
             <Button variant="secondary" onClick={closeEsignModal}>
               Cancel
             </Button>
-            <Button variant="primary">
+            <Button variant="primary" type="submit">
               {editingPackage ? 'Update Package' : 'Create Package'}
             </Button>
           </Modal.Footer>
         </Form>
       </FormDrawerModal>
+
+      {/* View Package Modal */}
+      <Modal show={showViewModal} onHide={() => setShowViewModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title className="d-flex align-items-center">
+            <PenTool size={20} className="me-2 text-primary" />
+            eSign Package Details
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedPackage && (
+            <div className="p-2">
+              <h5 className="mb-3 text-primary">{selectedPackage.name}</h5>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <strong>Status:</strong> {getStatusBadge(selectedPackage.status)}
+                </Col>
+                <Col md={6}>
+                  <strong>Progress:</strong> <span className="fw-semibold">{selectedPackage.progress}%</span>
+                  <ProgressBar
+                    now={selectedPackage.progress}
+                    variant={selectedPackage.progress === 100 ? 'success' : selectedPackage.progress >= 75 ? 'info' : selectedPackage.progress >= 50 ? 'warning' : 'danger'}
+                    size="sm"
+                    className="mt-1"
+                    style={{ height: '6px' }}
+                  />
+                </Col>
+              </Row>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <strong>Due Date:</strong> {new Date(selectedPackage.dueDate).toLocaleDateString()}
+                </Col>
+                <Col md={6}>
+                  <strong>Last Activity:</strong> {selectedPackage.lastActivity}
+                </Col>
+              </Row>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <strong>Created By:</strong> {selectedPackage.createdBy} ({selectedPackage.createdDate})
+                </Col>
+                <Col md={6}>
+                  <strong>AI Optimized:</strong> {selectedPackage.aiOptimized ? 'Yes' : 'No'}
+                </Col>
+              </Row>
+              <div className="mb-3 mt-3">
+                <strong>Description:</strong>
+                <p className="text-muted mt-1">{selectedPackage.description}</p>
+              </div>
+              <Row>
+                <Col md={6}>
+                  <strong>Recipients:</strong>
+                  <ul className="mt-2 pl-3">
+                    {selectedPackage.recipientsList && selectedPackage.recipientsList.length > 0 ? (
+                      selectedPackage.recipientsList.map((email, idx) => (
+                        <li key={idx} className="text-muted small">{email}</li>
+                      ))
+                    ) : (
+                      Array.from({ length: selectedPackage.recipients || 0 }).map((_, idx) => (
+                        <li key={idx} className="text-muted small">Recipient {idx + 1} (pending@example.com)</li>
+                      ))
+                    )}
+                  </ul>
+                </Col>
+                <Col md={6}>
+                  <strong>Documents:</strong>
+                  <ul className="mt-2 pl-3">
+                    {selectedPackage.documentsList && selectedPackage.documentsList.length > 0 ? (
+                      selectedPackage.documentsList.map((doc, idx) => (
+                        <li key={idx} className="text-muted small">{doc}</li>
+                      ))
+                    ) : (
+                      Array.from({ length: selectedPackage.documents || 0 }).map((_, idx) => (
+                        <li key={idx} className="text-muted small">Document {idx + 1}.pdf</li>
+                      ))
+                    )}
+                  </ul>
+                </Col>
+              </Row>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowViewModal(false)}>
+            Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </>
   )
 }

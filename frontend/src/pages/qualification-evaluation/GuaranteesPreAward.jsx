@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Row, Col, Button, Badge, Alert } from 'react-bootstrap'
+import { Row, Col, Button, Badge, Alert, Modal, ProgressBar } from 'react-bootstrap'
 import { Shield, Plus, Edit, Trash2, Eye, CheckCircle, AlertTriangle, FileText, Brain, DollarSign } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'react-toastify'
 import DataTable from '../../components/DataTable'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
@@ -11,6 +12,8 @@ const GuaranteesPreAward = () => {
   const navigate = useNavigate()
   const [guarantees, setGuarantees] = useState([])
   const [stats, setStats] = useState({})
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [selectedGuarantee, setSelectedGuarantee] = useState(null)
 
   useEffect(() => {
     setGuarantees([
@@ -143,13 +146,12 @@ const GuaranteesPreAward = () => {
   }, [])
 
   const handleViewGuarantee = (guarantee) => {
-    console.log('View guarantee:', guarantee)
-    // Navigate to view guarantee or open view modal
+    setSelectedGuarantee(guarantee)
+    setShowViewModal(true)
   }
 
   const handleEditGuarantee = (guarantee) => {
-    console.log('Edit guarantee:', guarantee)
-    // Navigate to edit guarantee or open edit modal
+    toast.info(`Editing guarantee "${guarantee.title}" is disabled in Demo Mode.`)
   }
 
   const handleDeleteGuarantee = (guarantee) => {
@@ -287,7 +289,8 @@ const GuaranteesPreAward = () => {
   }, [stats])
 
   return (
-    <ExecutiveCommandCenter
+    <>
+      <ExecutiveCommandCenter
       className="guarantees-pre-award-page"
       breadcrumbs={[
         { label: 'Qualification & Evaluation', onClick: () => navigate('/qualification-evaluation') },
@@ -358,7 +361,7 @@ const GuaranteesPreAward = () => {
       tableTitle={`Pre-award guarantees (${guarantees.length})`}
       tableActions={(
         <>
-          <Button variant="primary" className="me-2">
+          <Button variant="primary" className="me-2" onClick={() => toast.info("New guarantees are registered during credit review setup.")}>
             <Plus size={16} className="me-2" />
             New guarantee
           </Button>
@@ -394,7 +397,7 @@ const GuaranteesPreAward = () => {
             type: 'custom',
             label: 'Risk Assessment',
             onClick: (row) => {
-              console.log('Risk Assessment:', row.aiRiskAssessment);
+              handleViewGuarantee(row);
             }
           }
         ]}
@@ -403,6 +406,91 @@ const GuaranteesPreAward = () => {
         loading={false}
       />
     </ExecutiveCommandCenter>
+
+      {/* Details View Modal */}
+      <Modal show={showViewModal} onHide={() => { setShowViewModal(false); setSelectedGuarantee(null); }} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <Shield size={20} className="me-2 text-primary" />
+            Guarantee Details - {selectedGuarantee?.title}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedGuarantee && (
+            <div className="guarantee-view-details">
+              <Row className="mb-4">
+                <Col md={6}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <h6 className="text-muted mb-2">Instrument Info</h6>
+                    <p className="mb-1"><strong>Type:</strong> {selectedGuarantee.type}</p>
+                    <p className="mb-1"><strong>Status:</strong> <Badge bg={selectedGuarantee.status === 'Active' ? 'success' : selectedGuarantee.status === 'Expired' ? 'danger' : 'warning'}>{selectedGuarantee.status}</Badge></p>
+                    <p className="mb-1"><strong>Bank:</strong> {selectedGuarantee.bank}</p>
+                    <p className="mb-0"><strong>Tender Reference:</strong> {selectedGuarantee.tenderId}</p>
+                  </div>
+                </Col>
+                <Col md={6}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <h6 className="text-muted mb-2">Financials & SLA</h6>
+                    <p className="mb-1"><strong>Amount:</strong> ${selectedGuarantee.amount?.toLocaleString()} {selectedGuarantee.currency}</p>
+                    <p className="mb-1"><strong>Issued Date:</strong> {selectedGuarantee.issuedDate}</p>
+                    <p className="mb-1"><strong>Expiry Date:</strong> {selectedGuarantee.expiryDate}</p>
+                    <p className="mb-0"><strong>Compliance Score:</strong> {selectedGuarantee.complianceScore}%</p>
+                  </div>
+                </Col>
+              </Row>
+              <Row className="mb-4">
+                <Col md={6}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <h6 className="text-muted mb-2">Priority</h6>
+                    <p className="mb-0"><Badge bg={selectedGuarantee.priority === 'Critical' ? 'danger' : 'info'}>{selectedGuarantee.priority}</Badge></p>
+                  </div>
+                </Col>
+                <Col md={6}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <h6 className="text-muted mb-2">Documents Count</h6>
+                    <p className="mb-0">{selectedGuarantee.documents} attached files</p>
+                  </div>
+                </Col>
+              </Row>
+              <Row className="mb-4">
+                <Col md={12}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <h6 className="text-muted mb-2">Description</h6>
+                    <p className="mb-0">{selectedGuarantee.description}</p>
+                  </div>
+                </Col>
+              </Row>
+              <Row>
+                <Col md={12}>
+                  <div className="p-3 border rounded bg-light">
+                    <h6 className="text-muted mb-2">AI Risk Assessment</h6>
+                    <Alert variant={selectedGuarantee.status === 'Active' ? 'success' : selectedGuarantee.status === 'Expired' ? 'danger' : 'warning'} className="mb-0 d-flex align-items-center">
+                      <Brain size={16} className="me-2 text-primary" />
+                      <div>
+                        <strong>Risk Rating:</strong> {selectedGuarantee.aiRiskAssessment} • 
+                        <strong> Model Confidence:</strong> {selectedGuarantee.aiConfidence}%
+                      </div>
+                    </Alert>
+                  </div>
+                </Col>
+              </Row>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => { setShowViewModal(false); setSelectedGuarantee(null); }}>
+            Close
+          </Button>
+          <Button variant="primary" onClick={() => {
+            setShowViewModal(false);
+            handleEditGuarantee(selectedGuarantee);
+          }}>
+            <Edit size={16} className="me-2" />
+            Edit Guarantee
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    </>
   )
 }
 

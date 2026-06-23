@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Row, Col, Button, Badge, Modal, Alert } from 'react-bootstrap'
+import { Row, Col, Button, Badge, Modal, Alert, Form } from 'react-bootstrap'
+import FormDrawerModal from '../../components/FormDrawerModal'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
 import { Plus, Edit, Archive, FileText, Brain, CheckCircle, Shield } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
+import { toast } from 'react-toastify'
 import './LegalHold.scss'
 
 const LegalHold = () => {
@@ -13,6 +15,9 @@ const LegalHold = () => {
   const [loading, setLoading] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [selectedHold, setSelectedHold] = useState(null)
+  const [editingHold, setEditingHold] = useState(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [formKey, setFormKey] = useState(0)
 
   useEffect(() => {
     setLegalHolds([
@@ -259,12 +264,15 @@ const LegalHold = () => {
   }
 
   const handleEditHold = (hold) => {
-    console.log('Edit hold:', hold)
+    setEditingHold(hold)
+    setFormKey(k => k + 1)
+    setShowEditModal(true)
   }
 
   const handleDeleteHold = (hold) => {
     if (window.confirm(`Are you sure you want to delete legal hold "${hold.caseName}"?`)) {
       setLegalHolds(prev => prev.filter(h => h.id !== hold.id))
+      toast.success(`Successfully deleted legal hold "${hold.caseName}"!`)
     }
   }
 
@@ -365,6 +373,7 @@ const LegalHold = () => {
       setLegalHolds(prev => prev.map(h =>
         h.id === hold.id ? { ...h, expiryDate: '2025-06-01' } : h
       ))
+      toast.success(`Successfully extended legal hold for "${hold.caseName}"!`)
     }
   }
 
@@ -454,11 +463,11 @@ const LegalHold = () => {
         tableTitle={`Legal hold management (${legalHolds.length})`}
         tableActions={(
           <>
-            <Button variant="outline-secondary" className="me-2">
+            <Button variant="outline-secondary" className="me-2" onClick={() => toast.success('Exporting legal hold compliance report as CSV...')}>
               <FileText size={16} className="me-2" />
               Export report
             </Button>
-            <Button variant="primary">
+            <Button variant="primary" onClick={openCreateModal}>
               <Plus size={16} className="me-2" />
               New legal hold
             </Button>
@@ -559,12 +568,188 @@ const LegalHold = () => {
           <Button variant="secondary" onClick={() => setShowModal(false)}>
             Close
           </Button>
-          <Button variant="primary">
+          <Button variant="primary" onClick={() => {
+            setShowModal(false)
+            handleEditHold(selectedHold)
+          }}>
             <Edit size={16} className="me-2" />
             Edit Legal Hold
           </Button>
         </Modal.Footer>
       </Modal>
+
+      {/* Edit/Create Modal */}
+      <FormDrawerModal
+        show={showEditModal}
+        onHide={() => setShowEditModal(false)}
+        size="lg"
+        onTestFill={() => {
+          setEditingHold({
+            caseName: 'New Tender Litigation Hold',
+            caseNumber: 'CASE-2026-999',
+            description: 'Litigation hold covering engineering subcontracts and emails',
+            custodian: 'Legal Operations',
+            retentionPeriod: '5 years',
+            status: 'Active',
+            scope: [
+              'Engineering subcontracts',
+              'Subcontractor email correspondence',
+              'Defect reports and QA approvals'
+            ]
+          })
+          setFormKey(k => k + 1)
+        }}
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <Archive size={20} className="me-2" />
+            {editingHold ? 'Edit Legal Hold' : 'New Legal Hold'}
+          </Modal.Title>
+        </Modal.Header>
+        <Form key={formKey} onSubmit={(e) => {
+          e.preventDefault()
+          const formEl = e.currentTarget
+          const caseName = formEl.elements.caseName.value
+          const caseNumber = formEl.elements.caseNumber.value
+          const description = formEl.elements.description.value
+          const status = formEl.elements.status.value
+          const custodian = formEl.elements.custodian.value
+          const retentionPeriod = formEl.elements.retentionPeriod.value
+          const scopeRaw = formEl.elements.scope.value || ''
+          const scope = scopeRaw.split('\n').map(s => s.trim()).filter(Boolean)
+
+          if (editingHold) {
+            setLegalHolds(prev => prev.map(h => h.id === editingHold.id ? {
+              ...h,
+              caseName,
+              caseNumber,
+              description,
+              status,
+              custodian,
+              retentionPeriod,
+              scope
+            } : h))
+            toast.success(`Successfully updated legal hold "${caseName}"!`)
+          } else {
+            const nextId = legalHolds.length ? Math.max(...legalHolds.map(h => h.id), 0) + 1 : 1
+            const newHold = {
+              id: nextId,
+              caseName,
+              caseNumber,
+              description,
+              status,
+              issuedDate: new Date().toISOString().split('T')[0],
+              expiryDate: new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0],
+              custodian,
+              documents: 0,
+              retentionPeriod,
+              aiComplianceScore: 85,
+              aiRecommendation: 'Hold initialized, awaiting first preservation sweep.',
+              aiConfidence: 75,
+              scope
+            }
+            setLegalHolds(prev => [...prev, newHold])
+            toast.success(`Successfully issued legal hold "${caseName}"!`)
+          }
+          setShowEditModal(false)
+        }}>
+          <Modal.Body>
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Case Name</Form.Label>
+                  <Form.Control
+                    name="caseName"
+                    type="text"
+                    placeholder="Enter case name"
+                    defaultValue={editingHold?.caseName || ''}
+                    required
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Case Number</Form.Label>
+                  <Form.Control
+                    name="caseNumber"
+                    type="text"
+                    placeholder="CASE-YYYY-XXX"
+                    defaultValue={editingHold?.caseNumber || ''}
+                    required
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+            <Form.Group className="mb-3">
+              <Form.Label>Description</Form.Label>
+              <Form.Control
+                name="description"
+                as="textarea"
+                rows={3}
+                placeholder="Enter case description"
+                defaultValue={editingHold?.description || ''}
+              />
+            </Form.Group>
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Custodian</Form.Label>
+                  <Form.Control
+                    name="custodian"
+                    type="text"
+                    placeholder="e.g. Legal Department"
+                    defaultValue={editingHold?.custodian || ''}
+                    required
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Retention Period</Form.Label>
+                  <Form.Control
+                    name="retentionPeriod"
+                    type="text"
+                    placeholder="e.g. 7 years"
+                    defaultValue={editingHold?.retentionPeriod || ''}
+                    required
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Status</Form.Label>
+                  <Form.Select name="status" defaultValue={editingHold?.status || 'Active'}>
+                    <option value="Active">Active</option>
+                    <option value="Expired">Expired</option>
+                    <option value="Pending">Pending</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+            </Row>
+            <Form.Group className="mb-3">
+              <Form.Label>Scope (one item per line)</Form.Label>
+              <Form.Control
+                name="scope"
+                as="textarea"
+                rows={5}
+                placeholder="Enter scope descriptions..."
+                defaultValue={editingHold?.scope ? editingHold.scope.join('\n') : ''}
+                required
+              />
+            </Form.Group>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowEditModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" type="submit">
+              {editingHold ? 'Update Hold' : 'Create Hold'}
+            </Button>
+          </Modal.Footer>
+        </Form>
+      </FormDrawerModal>
     </>
   )
 }

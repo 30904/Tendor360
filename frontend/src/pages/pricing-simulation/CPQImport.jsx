@@ -3,9 +3,10 @@ import { Row, Col, Button, Form, Badge, Modal } from 'react-bootstrap'
 import FormDrawerModal from '../../components/FormDrawerModal'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
-import { Plus, Upload, Brain, CheckCircle, FileText, Database, Settings } from 'lucide-react'
+import { Plus, Upload, Brain, CheckCircle, FileText, Database, Settings, Edit } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
+import { toast } from 'react-toastify'
 import './CPQImport.scss'
 import { dummyCpqImportPrefill } from '../../utils/testFormDummies'
 
@@ -17,6 +18,9 @@ const CPQImport = () => {
   const [prefillSnapshot, setPrefillSnapshot] = useState(null)
   const [modalFormKey, setModalFormKey] = useState(0)
   const [stats, setStats] = useState({})
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [selectedImport, setSelectedImport] = useState(null)
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
 
   useEffect(() => {
     setImports([
@@ -146,12 +150,13 @@ const CPQImport = () => {
   const handleDeleteImport = (importItem) => {
     if (window.confirm(`Are you sure you want to delete import "${importItem.name}"?`)) {
       setImports(prev => prev.filter(i => i.id !== importItem.id))
+      toast.success(`Successfully deleted import job "${importItem.name}"!`)
     }
   }
 
   const handleViewImport = (importItem) => {
-    console.log('View import:', importItem)
-    // Navigate to view import or open view modal
+    setSelectedImport(importItem)
+    setShowViewModal(true)
   }
 
   const handleEditImportProfile = (importItem) => {
@@ -160,6 +165,55 @@ const CPQImport = () => {
 
   const handleDeleteImportProfile = (importItem) => {
     handleDeleteImport(importItem)
+  }
+
+  const handleSaveImportForm = (e) => {
+    e.preventDefault()
+    const data = new FormData(e.target)
+    const name = data.get('name')
+    const source = data.get('source')
+    const description = data.get('description')
+    const connectionString = data.get('connectionString')
+    const schedule = data.get('schedule')
+    const aiOptimized = e.target.elements.aiOptimized.checked
+
+    if (!name || !source) {
+      toast.error('Please enter an Import Name and select a Source System.')
+      return
+    }
+
+    const updatedData = {
+      name,
+      source,
+      description,
+      connectionString,
+      schedule,
+      aiOptimized,
+      progress: editingImport ? editingImport.progress : 0,
+      records: editingImport ? editingImport.records : 100,
+      imported: editingImport ? editingImport.imported : 0,
+      failed: editingImport ? editingImport.failed : 0,
+      accuracy: editingImport ? editingImport.accuracy : 90,
+      status: editingImport ? editingImport.status : 'Scheduled',
+      lastRun: editingImport ? editingImport.lastRun : null,
+      nextRun: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      createdBy: editingImport ? editingImport.createdBy : 'John Doe'
+    }
+
+    if (editingImport) {
+      setImports(prev => prev.map(i => i.id === editingImport.id ? { ...i, ...updatedData } : i))
+      toast.success(`Successfully updated import configuration "${name}"!`)
+    } else {
+      const newId = imports.length ? Math.max(...imports.map(i => i.id)) + 1 : 1
+      const newImport = {
+        id: newId,
+        ...updatedData
+      }
+      setImports(prev => [newImport, ...prev])
+      toast.success(`Successfully created CPQ import job "${name}"!`)
+    }
+
+    closeCpqModal()
   }
 
   // Column definitions for DataTable
@@ -405,7 +459,7 @@ const CPQImport = () => {
               <Plus size={16} className="me-2" />
               New Import
             </Button>
-            <Button variant="outline-secondary">
+            <Button variant="outline-secondary" onClick={() => setShowSettingsModal(true)}>
               <Settings size={16} className="me-2" />
               Settings
             </Button>
@@ -431,8 +485,18 @@ const CPQImport = () => {
               type: 'custom',
               label: 'Run Import',
               onClick: (row) => {
-                console.log('Run import:', row);
-                // Add run import logic here
+                toast.info(`Initializing CPQ import pipeline for "${row.name}"...`);
+                setImports(prev => prev.map(i => i.id === row.id ? { ...i, status: 'In Progress', progress: 10 } : i));
+                
+                setTimeout(() => {
+                  toast.info(`Parsing records from "${row.source}"...`);
+                  setImports(prev => prev.map(i => i.id === row.id ? { ...i, progress: 50 } : i));
+                }, 1000);
+
+                setTimeout(() => {
+                  toast.success(`Successfully completed import "${row.name}"! ${row.records} records loaded.`);
+                  setImports(prev => prev.map(i => i.id === row.id ? { ...i, status: 'Completed', progress: 100, lastRun: new Date().toISOString().split('T')[0] } : i));
+                }, 2000);
               }
             }
           ]}
@@ -461,14 +525,16 @@ const CPQImport = () => {
               {editingImport ? 'Edit CPQ Import' : 'New CPQ Import'}
             </Modal.Title>
           </Modal.Header>
-          <Form key={modalFormKey}>
+          <Form key={modalFormKey} onSubmit={handleSaveImportForm}>
             <Modal.Body>
               <Row>
                 <Col md={6}>
                   <Form.Group className="mb-3">
-                    <Form.Label>Import Name</Form.Label>
+                    <Form.Label>Import Name *</Form.Label>
                     <Form.Control
+                      name="name"
                       type="text"
+                      required
                       placeholder="Enter import name"
                       defaultValue={formSeed.name || ''}
                     />
@@ -476,8 +542,8 @@ const CPQImport = () => {
                 </Col>
                 <Col md={6}>
                   <Form.Group className="mb-3">
-                    <Form.Label>Source System</Form.Label>
-                    <Form.Select defaultValue={formSeed.source || ''}>
+                    <Form.Label>Source System *</Form.Label>
+                    <Form.Select name="source" required defaultValue={formSeed.source || ''}>
                       <option value="">Select source system</option>
                       <option value="SAP CPQ">SAP CPQ</option>
                       <option value="Oracle CPQ">Oracle CPQ</option>
@@ -490,6 +556,7 @@ const CPQImport = () => {
               <Form.Group className="mb-3">
                 <Form.Label>Description</Form.Label>
                 <Form.Control
+                  name="description"
                   as="textarea"
                   rows={3}
                   placeholder="Enter import description"
@@ -501,6 +568,7 @@ const CPQImport = () => {
                   <Form.Group className="mb-3">
                     <Form.Label>Connection String</Form.Label>
                     <Form.Control
+                      name="connectionString"
                       type="text"
                       placeholder="Enter connection string"
                       defaultValue={formSeed.connectionString || ''}
@@ -510,7 +578,7 @@ const CPQImport = () => {
                 <Col md={6}>
                   <Form.Group className="mb-3">
                     <Form.Label>Schedule</Form.Label>
-                    <Form.Select defaultValue={formSeed.schedule || ''}>
+                    <Form.Select name="schedule" defaultValue={formSeed.schedule || ''}>
                       <option value="">Select schedule</option>
                       <option value="daily">Daily</option>
                       <option value="weekly">Weekly</option>
@@ -522,6 +590,7 @@ const CPQImport = () => {
               </Row>
               <Form.Group className="mb-3">
                 <Form.Check
+                  name="aiOptimized"
                   type="checkbox"
                   label="Enable AI optimization for data validation and mapping"
                   defaultChecked={formSeed.aiOptimized || false}
@@ -532,12 +601,110 @@ const CPQImport = () => {
               <Button variant="secondary" onClick={closeCpqModal}>
                 Cancel
               </Button>
-              <Button variant="primary">
+              <Button variant="primary" type="submit">
                 {editingImport ? 'Update Import' : 'Create Import'}
               </Button>
             </Modal.Footer>
           </Form>
         </FormDrawerModal>
+
+      {/* View Import Modal */}
+      <Modal show={showViewModal} onHide={() => setShowViewModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title className="d-flex align-items-center">
+            <Database size={20} className="me-2 text-primary" />
+            CPQ Import Details
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedImport && (
+            <div className="p-2">
+              <h5 className="mb-3 text-primary">{selectedImport.name}</h5>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <strong>Source System:</strong> {selectedImport.source}
+                </Col>
+                <Col md={6}>
+                  <strong>Status:</strong> <Badge bg={selectedImport.status === 'Completed' ? 'success' : selectedImport.status === 'In Progress' ? 'primary' : 'warning'}>{selectedImport.status}</Badge>
+                </Col>
+              </Row>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <strong>Last Run:</strong> {selectedImport.lastRun || 'Never'}
+                </Col>
+                <Col md={6}>
+                  <strong>Next Scheduled Run:</strong> {selectedImport.nextRun || 'None'}
+                </Col>
+              </Row>
+              <Row className="mb-3">
+                <Col md={4}>
+                  <strong>Total Records:</strong> {selectedImport.records}
+                </Col>
+                <Col md={4}>
+                  <strong>Imported Successfully:</strong> {selectedImport.imported}
+                </Col>
+                <Col md={4}>
+                  <strong>Failed Records:</strong> <span className={selectedImport.failed > 0 ? 'text-danger fw-bold' : ''}>{selectedImport.failed}</span>
+                </Col>
+              </Row>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <strong>AI Optimized:</strong> <Badge bg={selectedImport.aiOptimized ? 'success' : 'secondary'}>{selectedImport.aiOptimized ? 'Yes' : 'No'}</Badge>
+                </Col>
+                <Col md={6}>
+                  <strong>Accuracy Level:</strong> {selectedImport.accuracy}%
+                </Col>
+              </Row>
+              <hr />
+              <div>
+                <h6>Description</h6>
+                <p className="mt-1">{selectedImport.description || 'No description provided.'}</p>
+              </div>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowViewModal(false)}>Close</Button>
+          {selectedImport && (
+            <Button variant="primary" onClick={() => { setShowViewModal(false); handleEditImport(selectedImport); }}>
+              <Edit size={16} className="me-2" />
+              Edit Import Profile
+            </Button>
+          )}
+        </Modal.Footer>
+      </Modal>
+
+      {/* Settings Modal */}
+      <Modal show={showSettingsModal} onHide={() => setShowSettingsModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title className="d-flex align-items-center">
+            <Settings size={20} className="me-2 text-primary" />
+            Import Settings
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form onSubmit={(e) => { e.preventDefault(); setShowSettingsModal(false); toast.success("Import settings saved successfully!"); }}>
+            <Form.Group className="mb-3">
+              <Form.Label>Default Sync Frequency</Form.Label>
+              <Form.Select defaultValue="weekly">
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </Form.Select>
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Check type="checkbox" label="Auto-resolve mapping conflicts using AI" defaultChecked />
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Check type="checkbox" label="Send email notification on import failure" defaultChecked />
+            </Form.Group>
+            <div className="d-flex justify-content-end">
+              <Button variant="secondary" className="me-2" onClick={() => setShowSettingsModal(false)}>Cancel</Button>
+              <Button variant="primary" type="submit">Save Settings</Button>
+            </div>
+          </Form>
+        </Modal.Body>
+      </Modal>
     </>
   )
 }

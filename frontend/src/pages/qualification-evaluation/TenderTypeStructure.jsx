@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
+import { toast } from 'react-toastify'
 import './TenderTypeStructure.scss'
 
 const TenderTypeStructure = () => {
@@ -167,10 +168,29 @@ const TenderTypeStructure = () => {
   }
 
   const handleCreateType = () => {
-    if (window.confirm('Are you sure you want to create a new tender type?')) {
-      // Implementation for creating new tender type
-      console.log('Creating new tender type...')
+    const newId = tenderTypes.length ? Math.max(...tenderTypes.map(t => t.id)) + 1 : 1
+    const dummyType = {
+      id: newId,
+      name: `Custom Structure ${newId}`,
+      description: 'Newly customized multi-stage procurement template.',
+      category: 'Specialized',
+      structure: 'Multi Stage',
+      evaluationMethod: 'Technical + Commercial',
+      complexity: 'High',
+      duration: '45-90 days',
+      requirements: [
+        'Detailed requirements list',
+        'Custom scoring logic integration'
+      ],
+      aiRecommendation: 'Best for custom complex solutions.',
+      aiConfidence: 91,
+      successRate: 80,
+      avgBidders: 4,
+      complianceScore: 90,
+      riskLevel: 'Medium'
     }
+    setTenderTypes(prev => [dummyType, ...prev])
+    toast.success(`Successfully initialized tender structure "${dummyType.name}"!`)
   }
 
   const getComplexityBadge = (complexity) => {
@@ -208,8 +228,7 @@ const TenderTypeStructure = () => {
   }
 
   const handleEditTenderType = (tenderType) => {
-    console.log('Edit tender type:', tenderType)
-    // Navigate to edit tender type or open edit modal
+    toast.info(`Editing tender structure "${tenderType.name}" is locked.`)
   }
 
   const handleDeleteTenderType = (tenderType) => {
@@ -442,7 +461,7 @@ const TenderTypeStructure = () => {
               type: 'custom',
               label: 'View Structure',
               onClick: (row) => {
-                console.log('View Structure:', row);
+                handleViewTenderType(row);
               }
             }
           ]}
@@ -519,7 +538,10 @@ const TenderTypeStructure = () => {
             <Button variant="secondary" onClick={() => setShowModal(false)}>
               Close
             </Button>
-            <Button variant="primary">
+            <Button variant="primary" onClick={() => {
+              setShowModal(false);
+              handleEditTenderType(selectedType);
+            }}>
               <Edit size={16} className="me-2" />
               Edit Type
             </Button>

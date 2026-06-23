@@ -1,16 +1,41 @@
 import React, { useState, useEffect } from 'react'
-import { Button, Badge, Alert, Row, Col } from 'react-bootstrap'
+import { Button, Badge, Alert, Row, Col, Modal, Form } from 'react-bootstrap'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
-import { DollarSign, Plus, TrendingUp, Globe, AlertTriangle, Calculator, Percent } from 'lucide-react'
+import { DollarSign, Plus, TrendingUp, Globe, AlertTriangle, Calculator, Percent, Edit, Brain } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
+import { toast } from 'react-toastify'
 import './FXTaxes.scss'
 
 const FXTaxes = () => {
   const navigate = useNavigate()
   const [fxTaxes, setFxTaxes] = useState([])
   const [stats, setStats] = useState({})
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showForecastModal, setShowForecastModal] = useState(false)
+  const [selectedFxTax, setSelectedFxTax] = useState(null)
+
+  const [formData, setFormData] = useState({
+    currencyPair: '',
+    baseCurrency: '',
+    targetCurrency: '',
+    currentRate: 1.0,
+    previousRate: 1.0,
+    changePercent: 0.0,
+    taxRate: 0.0,
+    taxType: 'VAT',
+    country: '',
+    region: '',
+    status: 'Active',
+    lastUpdated: new Date().toISOString().split('T')[0],
+    aiForecast: '',
+    aiConfidence: 90,
+    volatility: 'Low',
+    priority: 'Medium',
+    createdBy: 'Admin'
+  })
 
   useEffect(() => {
     // Mock data for FX and taxes
@@ -150,19 +175,78 @@ const FXTaxes = () => {
   }, [])
 
   const handleViewFxTax = (fxTax) => {
-    console.log('View FX & Tax:', fxTax)
-    // Navigate to view item or open view modal
+    setSelectedFxTax(fxTax)
+    setShowViewModal(true)
   }
 
   const handleEditFxTax = (fxTax) => {
-    console.log('Edit FX & Tax:', fxTax)
-    // Navigate to edit item or open edit modal
+    setSelectedFxTax(fxTax)
+    setFormData({
+      ...fxTax
+    })
+    setShowEditModal(true)
   }
 
   const handleDeleteFxTax = (fxTax) => {
-    if (window.confirm('Are you sure you want to delete this FX & Tax configuration?')) {
+    if (window.confirm(`Are you sure you want to delete FX & Tax configuration for "${fxTax.currencyPair}"?`)) {
       setFxTaxes(prev => prev.filter(i => i.id !== fxTax.id))
+      toast.success(`Successfully deleted FX & Tax configuration for "${fxTax.currencyPair}"!`)
     }
+  }
+
+  const handleCreateFxTax = () => {
+    setSelectedFxTax(null)
+    setFormData({
+      currencyPair: '',
+      baseCurrency: '',
+      targetCurrency: '',
+      currentRate: 1.0,
+      previousRate: 1.0,
+      changePercent: 0.0,
+      taxRate: 0.0,
+      taxType: 'VAT',
+      country: '',
+      region: '',
+      status: 'Active',
+      lastUpdated: new Date().toISOString().split('T')[0],
+      aiForecast: 'Stable forecast expected',
+      aiConfidence: 85,
+      volatility: 'Low',
+      priority: 'Medium',
+      createdBy: 'Admin'
+    })
+    setShowEditModal(true)
+  }
+
+  const handleSaveFxTax = (e) => {
+    e.preventDefault()
+    if (!formData.currencyPair || !formData.country || !formData.region) {
+      toast.error('Please fill in all required fields.')
+      return
+    }
+
+    const calculatedChange = formData.previousRate ? parseFloat((((formData.currentRate - formData.previousRate) / formData.previousRate) * 100).toFixed(2)) : 0.0
+
+    const updatedData = {
+      ...formData,
+      changePercent: calculatedChange,
+      lastUpdated: new Date().toISOString().split('T')[0]
+    }
+
+    if (selectedFxTax) {
+      setFxTaxes(prev => prev.map(i => i.id === selectedFxTax.id ? { ...i, ...updatedData } : i))
+      toast.success(`Successfully updated FX & Tax configuration for "${formData.currencyPair}"!`)
+    } else {
+      const newId = fxTaxes.length ? Math.max(...fxTaxes.map(i => i.id)) + 1 : 1
+      const newFxTax = {
+        id: newId,
+        ...updatedData
+      }
+      setFxTaxes(prev => [newFxTax, ...prev])
+      toast.success(`Successfully created FX & Tax configuration for "${formData.currencyPair}"!`)
+    }
+
+    setShowEditModal(false)
   }
 
   // Column definitions for DataTable
@@ -369,11 +453,16 @@ const FXTaxes = () => {
         tableTitle={`FX & tax rates (${fxTaxes.length})`}
         tableActions={(
           <>
-            <Button variant="primary" className="me-2">
+            <Button variant="primary" className="me-2" onClick={handleCreateFxTax}>
               <Plus size={16} className="me-2" />
               Add Currency Pair
             </Button>
-            <Button variant="outline-secondary">
+            <Button variant="outline-secondary" onClick={() => {
+              toast.info("Connecting to market rate API...");
+              setTimeout(() => {
+                toast.success("Successfully updated FX rates to latest market values!");
+              }, 1000);
+            }}>
               <Globe size={16} className="me-2" />
               Update Rates
             </Button>
@@ -408,7 +497,8 @@ const FXTaxes = () => {
               type: 'custom',
               label: 'AI Forecast',
               onClick: (row) => {
-                console.log('AI Forecast:', row.aiForecast);
+                setSelectedFxTax(row)
+                setShowForecastModal(true)
               }
             }
           ]}
@@ -417,6 +507,295 @@ const FXTaxes = () => {
           loading={false}
         />
       </ExecutiveCommandCenter>
+
+      {/* View Modal */}
+      <Modal show={showViewModal} onHide={() => setShowViewModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title className="d-flex align-items-center">
+            <DollarSign size={20} className="me-2 text-primary" />
+            FX & Tax Details
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedFxTax && (
+            <div className="p-2">
+              <h5 className="mb-3 text-primary">{selectedFxTax.currencyPair} ({selectedFxTax.country})</h5>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <strong>Current Rate:</strong> {selectedFxTax.currentRate}
+                </Col>
+                <Col md={6}>
+                  <strong>Previous Rate:</strong> {selectedFxTax.previousRate}
+                </Col>
+              </Row>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <strong>Daily Change:</strong>{' '}
+                  <span className={selectedFxTax.changePercent >= 0 ? 'text-success fw-bold' : 'text-danger'}>
+                    {selectedFxTax.changePercent >= 0 ? '+' : ''}{selectedFxTax.changePercent}%
+                  </span>
+                </Col>
+                <Col md={6}>
+                  <strong>Status:</strong> <Badge bg={selectedFxTax.status === 'Active' ? 'success' : 'secondary'}>{selectedFxTax.status}</Badge>
+                </Col>
+              </Row>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <strong>Tax Rate:</strong> {selectedFxTax.taxRate}% ({selectedFxTax.taxType})
+                </Col>
+                <Col md={6}>
+                  <strong>Region / Jurisdiction:</strong> {selectedFxTax.region}
+                </Col>
+              </Row>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <strong>Volatility:</strong> <Badge bg={selectedFxTax.volatility === 'High' ? 'danger' : selectedFxTax.volatility === 'Medium' ? 'warning' : 'success'}>{selectedFxTax.volatility}</Badge>
+                </Col>
+                <Col md={6}>
+                  <strong>Priority:</strong> <Badge bg={selectedFxTax.priority === 'Critical' ? 'danger' : selectedFxTax.priority === 'High' ? 'warning' : 'info'}>{selectedFxTax.priority}</Badge>
+                </Col>
+              </Row>
+              <hr />
+              <div>
+                <h6>AI Market Forecast</h6>
+                <Alert variant="info" className="d-flex align-items-start mt-2">
+                  <Brain size={18} className="me-2 mt-1 flex-shrink-0" />
+                  <div>
+                    <div><strong>Outlook:</strong> {selectedFxTax.aiForecast}</div>
+                    <div className="mt-1 text-muted"><small>Confidence Level: {selectedFxTax.aiConfidence}%</small></div>
+                  </div>
+                </Alert>
+              </div>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowViewModal(false)}>Close</Button>
+          {selectedFxTax && (
+            <Button variant="primary" onClick={() => { setShowViewModal(false); handleEditFxTax(selectedFxTax); }}>
+              <Edit size={16} className="me-2" />
+              Edit Details
+            </Button>
+          )}
+        </Modal.Footer>
+      </Modal>
+
+      {/* Edit/Create Modal */}
+      <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            {selectedFxTax ? 'Edit FX & Tax Configuration' : 'Add New Currency Pair & Tax'}
+          </Modal.Title>
+        </Modal.Header>
+        <Form onSubmit={handleSaveFxTax}>
+          <Modal.Body>
+            <Row className="mb-3">
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Currency Pair *</Form.Label>
+                  <Form.Control
+                    type="text"
+                    required
+                    value={formData.currencyPair}
+                    onChange={e => setFormData(prev => ({ ...prev, currencyPair: e.target.value }))}
+                    placeholder="e.g. USD/EUR"
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Country *</Form.Label>
+                  <Form.Control
+                    type="text"
+                    required
+                    value={formData.country}
+                    onChange={e => setFormData(prev => ({ ...prev, country: e.target.value }))}
+                    placeholder="e.g. Germany"
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+            <Row className="mb-3">
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Base Currency</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={formData.baseCurrency}
+                    onChange={e => setFormData(prev => ({ ...prev, baseCurrency: e.target.value }))}
+                    placeholder="e.g. USD"
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Target Currency</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={formData.targetCurrency}
+                    onChange={e => setFormData(prev => ({ ...prev, targetCurrency: e.target.value }))}
+                    placeholder="e.g. EUR"
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+            <Row className="mb-3">
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Current Rate *</Form.Label>
+                  <Form.Control
+                    type="number"
+                    step="0.0001"
+                    required
+                    value={formData.currentRate}
+                    onChange={e => setFormData(prev => ({ ...prev, currentRate: parseFloat(e.target.value) || 0 }))}
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Previous Rate *</Form.Label>
+                  <Form.Control
+                    type="number"
+                    step="0.0001"
+                    required
+                    value={formData.previousRate}
+                    onChange={e => setFormData(prev => ({ ...prev, previousRate: parseFloat(e.target.value) || 0 }))}
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+            <Row className="mb-3">
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label>Tax Rate (%) *</Form.Label>
+                  <Form.Control
+                    type="number"
+                    step="0.1"
+                    required
+                    value={formData.taxRate}
+                    onChange={e => setFormData(prev => ({ ...prev, taxRate: parseFloat(e.target.value) || 0 }))}
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label>Tax Type</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={formData.taxType}
+                    onChange={e => setFormData(prev => ({ ...prev, taxType: e.target.value }))}
+                    placeholder="e.g. VAT, GST, HST"
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label>Region / Continent *</Form.Label>
+                  <Form.Control
+                    type="text"
+                    required
+                    value={formData.region}
+                    onChange={e => setFormData(prev => ({ ...prev, region: e.target.value }))}
+                    placeholder="e.g. EU, Asia, North America"
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+            <Row className="mb-3">
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label>Volatility</Form.Label>
+                  <Form.Select
+                    value={formData.volatility}
+                    onChange={e => setFormData(prev => ({ ...prev, volatility: e.target.value }))}
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label>Priority</Form.Label>
+                  <Form.Select
+                    value={formData.priority}
+                    onChange={e => setFormData(prev => ({ ...prev, priority: e.target.value }))}
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Critical">Critical</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label>Status</Form.Label>
+                  <Form.Select
+                    value={formData.status}
+                    onChange={e => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Secondary">Secondary</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+            </Row>
+            <Form.Group className="mb-3">
+              <Form.Label>AI Forecast & Outlook</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={2}
+                value={formData.aiForecast}
+                onChange={e => setFormData(prev => ({ ...prev, aiForecast: e.target.value }))}
+              />
+            </Form.Group>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowEditModal(false)}>Cancel</Button>
+            <Button variant="primary" type="submit">
+              {selectedFxTax ? 'Save Changes' : 'Create Configuration'}
+            </Button>
+          </Modal.Footer>
+        </Form>
+      </Modal>
+
+      {/* AI Forecast Modal */}
+      <Modal show={showForecastModal} onHide={() => setShowForecastModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title className="d-flex align-items-center">
+            <Brain size={20} className="me-2 text-info" />
+            AI Exchange Rate Prediction
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedFxTax && (
+            <div>
+              <h6 className="text-primary">Currency Pair: {selectedFxTax.currencyPair}</h6>
+              <div className="mt-3">
+                <strong>Projected Outlook:</strong> {selectedFxTax.aiForecast}
+              </div>
+              <div className="mt-2">
+                <strong>Model Confidence:</strong> {selectedFxTax.aiConfidence}%
+              </div>
+              <div className="mt-2">
+                <strong>Assessed Volatility:</strong>{' '}
+                <Badge bg={selectedFxTax.volatility === 'High' ? 'danger' : selectedFxTax.volatility === 'Medium' ? 'warning' : 'success'}>
+                  {selectedFxTax.volatility} Volatility
+                </Badge>
+              </div>
+              <Alert variant="info" className="mt-3">
+                Forecast models predict potential macro-economic indicators and interest rate announcements. Use hedging instruments for projects with durations exceeding 6 months.
+              </Alert>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowForecastModal(false)}>Close</Button>
+        </Modal.Footer>
+      </Modal>
     </>
   )
 }
