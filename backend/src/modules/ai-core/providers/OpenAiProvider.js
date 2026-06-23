@@ -7,7 +7,10 @@ class OpenAiProvider extends BaseAiProvider {
   }
 
   isConfigured() {
-    return Boolean(process.env.OPENAI_API_KEY);
+    const key = process.env.OPENAI_API_KEY || '';
+    // Require the standard OpenAI key prefix so placeholder values like
+    // "your-key-here" or an empty string don't falsely report as configured.
+    return key.startsWith('sk-') && key.length > 10;
   }
 
   async summarize(payload) {

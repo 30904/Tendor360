@@ -18,6 +18,7 @@ const { applyMetadataToTender } = require('./DiscoveryMetadataService');
 const attachmentHarvestService = require('./AttachmentHarvestService');
 const tenderIntelligenceService = require('../../tender-intelligence/services/TenderIntelligenceService');
 const { webhookDeliveryService } = require('../../integrations/services/WebhookDeliveryService');
+const webhookDispatcher = require('../../integrations/services/WebhookDispatcherService');
 
 async function appendLog(companyId, jobId, level, message, metadata) {
   await TenderDiscoveryLog.create({
@@ -153,6 +154,7 @@ async function importOpportunities({
         recordsUpdated += 1;
         imported += 1;
         processedOpportunities.push({ tenderId: existing._id, opportunity, changeStatus: 'updated' });
+        webhookDispatcher.triggerEvent(companyId, 'tender.updated', existing);
         triggerTenderIntelligence(companyId, existing._id);
         webhookDeliveryService.emitAsync(
           companyId,
@@ -216,6 +218,7 @@ async function importOpportunities({
       recordsNew += 1;
       imported += 1;
       processedOpportunities.push({ tenderId: tender._id, opportunity, changeStatus: 'new' });
+      webhookDispatcher.triggerEvent(companyId, 'tender.created', tender);
       triggerTenderIntelligence(companyId, tender._id);
       webhookDeliveryService.emitAsync(
         companyId,

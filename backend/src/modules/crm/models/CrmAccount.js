@@ -9,6 +9,7 @@ const crmAccountSchema = new mongoose.Schema(
       index: true
     },
     salesforceId: { type: String, trim: true, index: true },
+    accountNumber: { type: String, trim: true, index: true },
     name: { type: String, required: true, trim: true, index: true },
     division: { type: String, trim: true },
     relationshipStatus: {

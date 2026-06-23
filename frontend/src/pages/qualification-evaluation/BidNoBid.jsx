@@ -27,6 +27,8 @@ const BidNoBid = () => {
   const [editingDecision, setEditingDecision] = useState(null)
   const [prefillSnapshot, setPrefillSnapshot] = useState(null)
   const [modalFormKey, setModalFormKey] = useState(0)
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [selectedDecisionForView, setSelectedDecisionForView] = useState(null)
 
   useEffect(() => {
     dispatch(fetchEvaluations({}))
@@ -52,8 +54,8 @@ const BidNoBid = () => {
 
   const availableTenders = useMemo(() => {
     if (!tenders) return [];
-    const evaluatedTenderIds = new Set(evaluations?.map(e => e.tenderId?._id || e.tenderId) || []);
-    return tenders.filter(t => !evaluatedTenderIds.has(t._id));
+    const evaluatedTenderIds = new Set(evaluations?.map(e => e.tenderId?._id || e.tenderId?.id || e.tenderId) || []);
+    return tenders.filter(t => !evaluatedTenderIds.has(t.id || t._id));
   }, [tenders, evaluations]);
 
   const handleEditDecision = (decision) => {
@@ -81,14 +83,15 @@ const BidNoBid = () => {
     try {
       // Set a loading toast or state if we want, but for now just await
       const response = await dispatch(predictAIScore(tenderSelect.value)).unwrap();
-      if (response && response.prediction) {
+      const prediction = response?.data?.prediction || response?.prediction;
+      if (prediction) {
         setPrefillSnapshot((prev) => ({
           ...prev,
           tenderId: tenderSelect.value, // preserve current selection
           decision: 'BID', 
-          confidenceLevel: response.prediction.confidenceLevel,
-          riskLevel: response.prediction.riskLevel,
-          decisionReason: response.prediction.decisionReason
+          confidenceLevel: prediction.confidenceLevel,
+          riskLevel: prediction.riskLevel,
+          decisionReason: prediction.decisionReason
         }));
         setModalFormKey((k) => k + 1);
       }
@@ -144,8 +147,8 @@ const BidNoBid = () => {
   }
 
   const handleViewDecision = (decision) => {
-    console.log('View decision:', decision)
-    // Navigate to view decision or open view modal
+    setSelectedDecisionForView(decision)
+    setShowViewModal(true)
   }
 
   // Column definitions for DataTable
@@ -442,7 +445,7 @@ const BidNoBid = () => {
               type: 'custom',
               label: 'View Rationale',
               onClick: (row) => {
-                console.log('View rationale:', row.rationale);
+                handleViewDecision(row);
               }
             }
           ]}
@@ -478,12 +481,12 @@ const BidNoBid = () => {
                     <Form.Label>Select Tender</Form.Label>
                     <Form.Select 
                       name="tenderId" 
-                      defaultValue={formSeed.tenderId?._id || formSeed.tenderId || ''}
+                      defaultValue={formSeed.tenderId?._id || formSeed.tenderId?.id || formSeed.tenderId || ''}
                       required
                     >
                       <option value="">-- Select a Tender --</option>
                       {availableTenders?.map(t => (
-                        <option key={t._id} value={t._id}>{t.title} ({t.organization})</option>
+                        <option key={t.id || t._id} value={t.id || t._id}>{t.title} ({t.organization})</option>
                       ))}
                     </Form.Select>
                   </Form.Group>
@@ -553,6 +556,80 @@ const BidNoBid = () => {
             </Modal.Footer>
           </Form>
         </FormDrawerModal>
+
+        {/* Details View Modal */}
+        <Modal show={showViewModal} onHide={() => { setShowViewModal(false); setSelectedDecisionForView(null); }} size="lg">
+          <Modal.Header closeButton>
+            <Modal.Title>
+              <Target size={20} className="me-2 text-primary" />
+              Decision Details - {selectedDecisionForView?.tenderId?.title || 'Unknown Tender'}
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            {selectedDecisionForView && (
+              <div className="decision-view-details">
+                <Row className="mb-4">
+                  <Col md={6}>
+                    <div className="p-3 border rounded bg-light mb-3">
+                      <h6 className="text-muted mb-2">Tender Information</h6>
+                      <p className="mb-1"><strong>Client:</strong> {selectedDecisionForView.tenderId?.organization || 'Unknown'}</p>
+                      <p className="mb-1"><strong>Estimated Value:</strong> ${((selectedDecisionForView.tenderId?.estimatedValue || 0) / 1000000).toFixed(1)}M</p>
+                      <p className="mb-0"><strong>Created Date:</strong> {selectedDecisionForView.createdAt ? new Date(selectedDecisionForView.createdAt).toLocaleDateString() : 'N/A'}</p>
+                    </div>
+                  </Col>
+                  <Col md={6}>
+                    <div className="p-3 border rounded bg-light mb-3">
+                      <h6 className="text-muted mb-2">Decision Posture</h6>
+                      <p className="mb-1"><strong>Decision:</strong> {getDecisionBadge(selectedDecisionForView.decision)}</p>
+                      <p className="mb-1"><strong>Risk Level:</strong> {getRiskBadge(selectedDecisionForView.riskLevel)}</p>
+                      <p className="mb-0"><strong>Status:</strong> {getStatusBadge(selectedDecisionForView.status)}</p>
+                    </div>
+                  </Col>
+                </Row>
+                <Row className="mb-4">
+                  <Col md={12}>
+                    <div className="p-3 border rounded bg-light mb-3">
+                      <h6 className="text-muted mb-2">Confidence Stance</h6>
+                      <div className="d-flex align-items-center mb-2">
+                        <span className="fw-bold me-2">{selectedDecisionForView.confidenceLevel || 0}%</span>
+                        {getConfidenceIcon(selectedDecisionForView.confidenceLevel)}
+                      </div>
+                      <ProgressBar
+                        now={selectedDecisionForView.confidenceLevel || 0}
+                        variant={(selectedDecisionForView.confidenceLevel || 0) >= 80 ? 'success' : (selectedDecisionForView.confidenceLevel || 0) >= 60 ? 'warning' : 'danger'}
+                        style={{ height: '8px' }}
+                      />
+                    </div>
+                  </Col>
+                </Row>
+                <Row>
+                  <Col md={12}>
+                    <div className="p-3 border rounded bg-light">
+                      <h6 className="text-muted mb-2">Pursuit Rationale</h6>
+                      <p className="mb-0 text-dark" style={{ whiteSpace: 'pre-wrap' }}>
+                        {selectedDecisionForView.decisionReason || selectedDecisionForView.rationale || 'No rationale logged for this decision.'}
+                      </p>
+                    </div>
+                  </Col>
+                </Row>
+              </div>
+            )}
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => { setShowViewModal(false); setSelectedDecisionForView(null); }}>
+              Close
+            </Button>
+            {selectedDecisionForView && (
+              <Button variant="primary" onClick={() => {
+                setShowViewModal(false);
+                handleEditDecision(selectedDecisionForView);
+              }}>
+                <Edit size={16} className="me-2" />
+                Edit Decision
+              </Button>
+            )}
+          </Modal.Footer>
+        </Modal>
     </>
   )
 }

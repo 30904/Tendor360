@@ -5,6 +5,8 @@ const xlsx = require('xlsx');
 const Document = require('../../../models/Document');
 const SamGovConnector = require('../../../services/connectors/SamGovConnector');
 const WebScrapeConnector = require('../../../services/connectors/WebScrapeConnector');
+const sharePointUploadService = require('../../storage/services/SharePointUploadService');
+const webhookDispatcher = require('../../integrations/services/WebhookDispatcherService');
 
 const UPLOAD_ROOT = path.join(__dirname, '../../../../uploads');
 
@@ -226,6 +228,31 @@ class AttachmentHarvestService {
 
         results.documents.push(document);
         results.downloaded += 1;
+
+        // Trigger outbound webhook event
+        webhookDispatcher.triggerEvent(companyId, 'document.uploaded', document);
+
+        // Asynchronously upload the downloaded file to SharePoint (non-blocking)
+        try {
+          const buffer = fs.readFileSync(destPath);
+          sharePointUploadService.uploadDocument(
+            tenderId,
+            attachment.name || safeName,
+            buffer,
+            mimeType,
+            companyId
+          ).then(async (uploadRes) => {
+            if (uploadRes && uploadRes.webUrl) {
+              document.sharePointUrl = uploadRes.webUrl;
+              await document.save();
+              console.log(`[SharePoint] Successfully uploaded document ${document._id} for tender ${tenderId} to SharePoint: ${uploadRes.webUrl}`);
+            }
+          }).catch((err) => {
+            console.error(`[SharePoint-Error] Failed to upload document ${document._id} to SharePoint: ${err.message}`);
+          });
+        } catch (readErr) {
+          console.error(`[SharePoint-Error] Failed to read harvested file for SharePoint upload: ${readErr.message}`);
+        }
       } catch (error) {
         console.warn(
           `Attachment harvest failed for ${attachment.name || attachment.url}:`,

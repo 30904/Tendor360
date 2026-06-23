@@ -5,6 +5,7 @@ import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
 import { Plus, Edit, Trash2, Eye, Briefcase, CheckCircle, Brain, AlertTriangle, TrendingUp } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
+import { toast } from 'react-toastify'
 import './WorkspaceTasks.scss'
 
 const WorkspaceTasks = () => {
@@ -194,10 +195,33 @@ const WorkspaceTasks = () => {
   }
 
   const handleCreateWorkspace = () => {
-    if (window.confirm('Are you sure you want to create a new workspace?')) {
-      // Implementation for creating new workspace
-      console.log('Creating new workspace...')
+    const newId = workspaces.length ? Math.max(...workspaces.map(w => w.id)) + 1 : 1
+    const dummyWorkspace = {
+      id: newId,
+      name: `Tender Workspace Beta-${newId}`,
+      description: 'AI-generated evaluation workspace for rapid analysis.',
+      type: 'Tender Evaluation',
+      status: 'Active',
+      assignedTo: 'Evaluation Team Alpha',
+      tasks: [
+        { name: 'Technical Proposal Review', status: 'Pending', progress: 0, priority: 'High', dueDate: '2024-03-01' },
+        { name: 'Compliance Check', status: 'Pending', progress: 0, priority: 'Medium', dueDate: '2024-03-05' }
+      ],
+      totalTasks: 2,
+      completedTasks: 0,
+      inProgressTasks: 0,
+      pendingTasks: 2,
+      overallProgress: 0,
+      aiOptimization: 'Sequencing optimized for speed',
+      aiConfidence: 90,
+      deadline: '2024-03-10',
+      daysRemaining: 15,
+      riskLevel: 'Low',
+      createdDate: new Date().toISOString().split('T')[0],
+      lastActivity: new Date().toISOString().split('T')[0]
     }
+    setWorkspaces(prev => [dummyWorkspace, ...prev])
+    toast.success(`Successfully initialized workspace "${dummyWorkspace.name}"!`)
   }
 
   const handleViewWorkspaceTask = (workspace) => {
@@ -205,8 +229,7 @@ const WorkspaceTasks = () => {
   }
 
   const handleEditWorkspaceTask = (workspace) => {
-    console.log('Edit workspace task:', workspace)
-    // Navigate to edit workspace task or open edit modal
+    toast.info(`Editing task assignments for "${workspace.name}" is locked.`)
   }
 
   const handleDeleteWorkspaceTask = (workspace) => {
@@ -509,7 +532,7 @@ const WorkspaceTasks = () => {
               type: 'custom',
               label: 'View Tasks',
               onClick: (row) => {
-                console.log('View Tasks:', row);
+                handleViewWorkspace(row);
               }
             }
           ]}
@@ -603,7 +626,10 @@ const WorkspaceTasks = () => {
             <Button variant="secondary" onClick={() => setShowModal(false)}>
               Close
             </Button>
-            <Button variant="primary">
+            <Button variant="primary" onClick={() => {
+              setShowModal(false);
+              handleEditWorkspaceTask(selectedWorkspace);
+            }}>
               <Edit size={16} className="me-2" />
               Edit Workspace
             </Button>

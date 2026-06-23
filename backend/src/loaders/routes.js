@@ -2,7 +2,7 @@ const express = require('express');
 
 // Import route modules
 const authRoutes = require('../routes/auth');
-const tenderRoutes = require('../routes/tenderRoutes');
+const tenderRoutes = require('../routes/tender');
 const documentRoutes = require('../routes/document');
 const evaluationRoutes = require('../routes/evaluation');
 const pricingRoutes = require('../routes/pricing');

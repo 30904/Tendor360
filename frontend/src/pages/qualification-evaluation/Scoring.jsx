@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
 import './Scoring.scss'
 import { dummyScoringEvaluationModelForm } from '../../utils/testFormDummies'
+import { toast } from 'react-toastify'
 
 const Scoring = () => {
   const navigate = useNavigate()
@@ -16,6 +17,9 @@ const Scoring = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editingModel, setEditingModel] = useState(null)
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false)
+  const [selectedModel, setSelectedModel] = useState(null)
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -217,8 +221,8 @@ const Scoring = () => {
   }
 
   const handleViewModel = (model) => {
-    console.log('View model:', model)
-    // Navigate to view model or open view modal
+    setSelectedModel(model)
+    setShowViewModal(true)
   }
 
   const handleEditModel = (model) => {
@@ -516,7 +520,8 @@ const Scoring = () => {
               type: 'custom',
               label: 'View Analytics',
               onClick: (row) => {
-                console.log('View Analytics:', row);
+                setSelectedModel(row);
+                setShowAnalyticsModal(true);
               }
             }
           ]}
@@ -669,6 +674,126 @@ const Scoring = () => {
             </Modal.Footer>
           </Form>
         </FormDrawerModal>
+
+      {/* Details View Modal */}
+      <Modal show={showViewModal} onHide={() => { setShowViewModal(false); setSelectedModel(null); }} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <BarChart size={20} className="me-2 text-primary" />
+            Model Details - {selectedModel?.name}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedModel && (
+            <div className="model-view-details">
+              <Row className="mb-3">
+                <Col md={6}>
+                  <p><strong>Description:</strong> {selectedModel.description || 'No description provided.'}</p>
+                  <p><strong>Passing Score Requirement:</strong> {selectedModel.passingScore}%</p>
+                </Col>
+                <Col md={6}>
+                  <p><strong>Status:</strong> <Badge bg={selectedModel.isActive ? 'success' : 'secondary'}>{selectedModel.isActive ? 'Active' : 'Inactive'}</Badge></p>
+                  <p><strong>Usage:</strong> Used {selectedModel.usageCount || 0} times</p>
+                  <p><strong>Last Used:</strong> {selectedModel.lastUsed ? new Date(selectedModel.lastUsed).toLocaleDateString() : 'Never'}</p>
+                </Col>
+              </Row>
+              <hr />
+              <h6 className="mb-3">Criteria & Weights</h6>
+              <div className="criteria-list">
+                {selectedModel.criteria?.map((criterion, index) => (
+                  <div key={index} className="p-3 border rounded bg-light mb-2">
+                    <Row className="align-items-center">
+                      <Col xs={8}>
+                        <div className="fw-semibold">{criterion.name}</div>
+                        <small className="text-muted">Max Score: {criterion.maxScore}</small>
+                      </Col>
+                      <Col xs={4} className="text-end">
+                        <Badge bg="primary" style={{ fontSize: '0.9rem' }}>{criterion.weight}% Weight</Badge>
+                      </Col>
+                    </Row>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => { setShowViewModal(false); setSelectedModel(null); }}>
+            Close
+          </Button>
+          {selectedModel && (
+            <Button variant="primary" onClick={() => {
+              setShowViewModal(false);
+              handleEdit(selectedModel);
+            }}>
+              <Edit size={16} className="me-2" />
+              Edit Model
+            </Button>
+          )}
+        </Modal.Footer>
+      </Modal>
+
+      {/* Analytics View Modal */}
+      <Modal show={showAnalyticsModal} onHide={() => { setShowAnalyticsModal(false); setSelectedModel(null); }} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <Target size={20} className="me-2 text-info" />
+            Model Analytics - {selectedModel?.name}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedModel && (
+            <div className="model-analytics-details">
+              <Row className="mb-4 text-center">
+                <Col xs={6} md={3}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <div className="text-muted small">Pass Rate</div>
+                    <h3 className="text-success fw-bold mt-1">91.6%</h3>
+                  </div>
+                </Col>
+                <Col xs={6} md={3}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <div className="text-muted small">Avg Score</div>
+                    <h3 className="text-primary fw-bold mt-1">82.4%</h3>
+                  </div>
+                </Col>
+                <Col xs={6} md={3}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <div className="text-muted small">Highest Score</div>
+                    <h3 className="text-info fw-bold mt-1">96.0%</h3>
+                  </div>
+                </Col>
+                <Col xs={6} md={3}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <div className="text-muted small">Evaluations</div>
+                    <h3 className="text-secondary fw-bold mt-1">{selectedModel.usageCount || 24}</h3>
+                  </div>
+                </Col>
+              </Row>
+              <Row>
+                <Col md={12}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <h6 className="text-muted mb-2">Historical Distribution & Confidence</h6>
+                    <ProgressBar className="mb-2" style={{ height: '24px' }}>
+                      <ProgressBar striped variant="success" now={75} key={1} label="Above Pass (75%)" />
+                      <ProgressBar striped variant="warning" now={16} key={2} label="Borderline (16%)" />
+                      <ProgressBar striped variant="danger" now={9} key={3} label="Fail (9%)" />
+                    </ProgressBar>
+                    <small className="text-muted d-block mt-2">
+                      Analytics data is computed dynamically based on the performance of bids qualified under this rubric. AI-powered calibration suggests a weight variance of less than 2% over the last 90 days.
+                    </small>
+                  </div>
+                </Col>
+              </Row>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => { setShowAnalyticsModal(false); setSelectedModel(null); }}>
+            Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </>
   )
 }

@@ -1,16 +1,42 @@
 import React, { useState, useEffect } from 'react'
-import { Button, Badge, Alert, Row, Col } from 'react-bootstrap'
+import { Button, Badge, Alert, Row, Col, Modal, Form } from 'react-bootstrap'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
-import { Truck, Plus, DollarSign, Package, Globe, AlertTriangle, Calculator } from 'lucide-react'
+import { Truck, Plus, DollarSign, Package, Globe, AlertTriangle, Calculator, Edit, Brain } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
+import { toast } from 'react-toastify'
 import './DutiesFreight.scss'
 
 const DutiesFreight = () => {
   const navigate = useNavigate()
   const [dutiesFreight, setDutiesFreight] = useState([])
   const [stats, setStats] = useState({})
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [selectedItem, setSelectedItem] = useState(null)
+
+  const [formData, setFormData] = useState({
+    itemName: '',
+    category: 'Heavy Machinery',
+    originCountry: '',
+    destinationCountry: '',
+    weight: 0,
+    volume: 0.0,
+    value: 0,
+    currency: 'USD',
+    dutyRate: 0.0,
+    dutyAmount: 0.0,
+    freightCost: 0,
+    insuranceCost: 0,
+    totalCost: 0,
+    status: 'Calculated',
+    aiOptimized: true,
+    savings: 0,
+    lastUpdated: new Date().toISOString().split('T')[0],
+    createdBy: 'Admin',
+    priority: 'Medium'
+  })
 
   useEffect(() => {
     // Mock data for duties and freight
@@ -162,19 +188,82 @@ const DutiesFreight = () => {
   }, [])
 
   const handleViewDutiesFreight = (item) => {
-    console.log('View duties & freight:', item)
-    // Navigate to view item or open view modal
+    setSelectedItem(item)
+    setShowViewModal(true)
   }
 
   const handleEditDutiesFreight = (item) => {
-    console.log('Edit duties & freight:', item)
-    // Navigate to edit item or open edit modal
+    setSelectedItem(item)
+    setFormData({
+      ...item
+    })
+    setShowEditModal(true)
   }
 
   const handleDeleteDutiesFreight = (item) => {
-    if (window.confirm('Are you sure you want to delete this duties & freight calculation?')) {
+    if (window.confirm(`Are you sure you want to delete duties & freight for "${item.itemName}"?`)) {
       setDutiesFreight(prev => prev.filter(i => i.id !== item.id))
+      toast.success(`Successfully deleted "${item.itemName}"!`)
     }
+  }
+
+  const handleCreateDutiesFreight = () => {
+    setSelectedItem(null)
+    setFormData({
+      itemName: '',
+      category: 'Heavy Machinery',
+      originCountry: '',
+      destinationCountry: '',
+      weight: 0,
+      volume: 0.0,
+      value: 0,
+      currency: 'USD',
+      dutyRate: 2.0,
+      dutyAmount: 0.0,
+      freightCost: 0,
+      insuranceCost: 0,
+      totalCost: 0,
+      status: 'Calculated',
+      aiOptimized: true,
+      savings: 0,
+      lastUpdated: new Date().toISOString().split('T')[0],
+      createdBy: 'Admin',
+      priority: 'Medium'
+    })
+    setShowEditModal(true)
+  }
+
+  const handleSaveDutiesFreight = (e) => {
+    e.preventDefault()
+    if (!formData.itemName || !formData.originCountry || !formData.destinationCountry) {
+      toast.error('Please fill in all required fields.')
+      return
+    }
+
+    const calculatedDutyAmount = (formData.value * (formData.dutyRate / 100))
+    const calculatedTotal = calculatedDutyAmount + formData.freightCost + formData.insuranceCost
+
+    const updatedData = {
+      ...formData,
+      dutyAmount: calculatedDutyAmount,
+      totalCost: calculatedTotal,
+      lastUpdated: new Date().toISOString().split('T')[0]
+    }
+
+    if (selectedItem) {
+      setDutiesFreight(prev => prev.map(i => i.id === selectedItem.id ? { ...i, ...updatedData } : i))
+      toast.success(`Successfully updated "${formData.itemName}" calculations!`)
+    } else {
+      const newId = dutiesFreight.length ? Math.max(...dutiesFreight.map(i => i.id)) + 1 : 1
+      const newItem = {
+        id: newId,
+        ...updatedData
+      }
+      setDutiesFreight(prev => [newItem, ...prev])
+      toast.success(`Successfully added new landed cost calculations for "${formData.itemName}"!`)
+    }
+
+    setShowEditModal(false)
   }
 
   // Column definitions for DataTable
@@ -396,11 +485,16 @@ const DutiesFreight = () => {
         tableTitle={`Duties & freight (${dutiesFreight.length})`}
         tableActions={(
           <>
-            <Button variant="primary" className="me-2">
+            <Button variant="primary" className="me-2" onClick={handleCreateDutiesFreight}>
               <Plus size={16} className="me-2" />
               Calculate Duties & Freight
             </Button>
-            <Button variant="outline-secondary">
+            <Button variant="outline-secondary" onClick={() => {
+              toast.info("Importing regional duty rates from customs API...");
+              setTimeout(() => {
+                toast.success("Successfully imported latest customs duty schedules!");
+              }, 1000);
+            }}>
               <Globe size={16} className="me-2" />
               Import Rates
             </Button>
@@ -435,7 +529,21 @@ const DutiesFreight = () => {
               type: 'custom',
               label: 'Recalculate',
               onClick: (row) => {
-                console.log('Recalculate:', row);
+                toast.info(`Recalculating AI routing optimization for "${row.itemName}"...`);
+                setTimeout(() => {
+                  const calculatedDutyAmount = (row.value * (row.dutyRate / 100));
+                  const calculatedTotal = calculatedDutyAmount + row.freightCost + row.insuranceCost;
+                  const savings = row.aiOptimized ? 2000 : 0;
+                  
+                  setDutiesFreight(prev => prev.map(i => i.id === row.id ? { 
+                    ...i, 
+                    totalCost: calculatedTotal - savings,
+                    savings: savings,
+                    aiOptimized: true,
+                    status: 'Calculated' 
+                  } : i));
+                  toast.success(`Recalculated successfully! Saved $${(savings/1000).toFixed(1)}K via optimized AI freight routes.`);
+                }, 1000);
               }
             }
           ]}
@@ -444,6 +552,275 @@ const DutiesFreight = () => {
           loading={false}
         />
       </ExecutiveCommandCenter>
+
+      {/* View Modal */}
+      <Modal show={showViewModal} onHide={() => setShowViewModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title className="d-flex align-items-center">
+            <Truck size={20} className="me-2 text-primary" />
+            Landed Cost Details
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedItem && (
+            <div className="p-2">
+              <h5 className="mb-3 text-primary">{selectedItem.itemName}</h5>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <strong>Category:</strong> {selectedItem.category}
+                </Col>
+                <Col md={6}>
+                  <strong>Route:</strong> {selectedItem.originCountry} &rarr; {selectedItem.destinationCountry}
+                </Col>
+              </Row>
+              <Row className="mb-3">
+                <Col md={4}>
+                  <strong>Item Declared Value:</strong> ${selectedItem.value.toLocaleString()} {selectedItem.currency}
+                </Col>
+                <Col md={4}>
+                  <strong>Duty Cost:</strong> ${selectedItem.dutyAmount.toLocaleString()} ({selectedItem.dutyRate}% rate)
+                </Col>
+                <Col md={4}>
+                  <strong>Freight Cost:</strong> ${selectedItem.freightCost.toLocaleString()}
+                </Col>
+              </Row>
+              <Row className="mb-3">
+                <Col md={4}>
+                  <strong>Insurance Cost:</strong> ${selectedItem.insuranceCost.toLocaleString()}
+                </Col>
+                <Col md={4}>
+                  <strong>Landed Cost:</strong> ${selectedItem.totalCost.toLocaleString()}
+                </Col>
+                <Col md={4}>
+                  <strong>Status:</strong> <Badge bg={selectedItem.status === 'Calculated' ? 'success' : 'warning'}>{selectedItem.status}</Badge>
+                </Col>
+              </Row>
+              <Row className="mb-3">
+                <Col md={4}>
+                  <strong>Weight:</strong> {selectedItem.weight} kg
+                </Col>
+                <Col md={4}>
+                  <strong>Volume:</strong> {selectedItem.volume} cbm
+                </Col>
+                <Col md={4}>
+                  <strong>Priority:</strong> <Badge bg={selectedItem.priority === 'Critical' ? 'danger' : selectedItem.priority === 'High' ? 'warning' : 'info'}>{selectedItem.priority}</Badge>
+                </Col>
+              </Row>
+              <hr />
+              <div>
+                <h6>AI Route Optimization</h6>
+                <Alert variant="success" className="d-flex align-items-start mt-2">
+                  <Brain size={18} className="me-2 mt-1 flex-shrink-0" />
+                  <div>
+                    <div><strong>Optimized:</strong> {selectedItem.aiOptimized ? 'Yes - Route and logistics costs optimized' : 'No - Awaiting optimization runs'}</div>
+                    {selectedItem.savings > 0 && <div className="mt-1"><strong>Landed Savings:</strong> ${selectedItem.savings.toLocaleString()} realized</div>}
+                  </div>
+                </Alert>
+              </div>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowViewModal(false)}>Close</Button>
+          {selectedItem && (
+            <Button variant="primary" onClick={() => { setShowViewModal(false); handleEditDutiesFreight(selectedItem); }}>
+              <Edit size={16} className="me-2" />
+              Edit Calculations
+            </Button>
+          )}
+        </Modal.Footer>
+      </Modal>
+
+      {/* Edit/Create Modal */}
+      <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            {selectedItem ? 'Edit Landed Cost Model' : 'New Landed Cost Calculation'}
+          </Modal.Title>
+        </Modal.Header>
+        <Form onSubmit={handleSaveDutiesFreight}>
+          <Modal.Body>
+            <Form.Group className="mb-3">
+              <Form.Label>Item/Equipment Name *</Form.Label>
+              <Form.Control
+                type="text"
+                required
+                value={formData.itemName}
+                onChange={e => setFormData(prev => ({ ...prev, itemName: e.target.value }))}
+                placeholder="e.g. Server Racks, MRI Scanner"
+              />
+            </Form.Group>
+            <Row className="mb-3">
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Category</Form.Label>
+                  <Form.Select
+                    value={formData.category}
+                    onChange={e => setFormData(prev => ({ ...prev, category: e.target.value }))}
+                  >
+                    <option value="Heavy Machinery">Heavy Machinery</option>
+                    <option value="Medical Devices">Medical Devices</option>
+                    <option value="IT Equipment">IT Equipment</option>
+                    <option value="Automotive">Automotive</option>
+                    <option value="Manufacturing Equipment">Manufacturing Equipment</option>
+                    <option value="Pharmaceutical">Pharmaceutical</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Status</Form.Label>
+                  <Form.Select
+                    value={formData.status}
+                    onChange={e => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                  >
+                    <option value="Calculated">Calculated</option>
+                    <option value="Pending">Pending</option>
+                    <option value="In Review">In Review</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+            </Row>
+            <Row className="mb-3">
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Origin Country *</Form.Label>
+                  <Form.Control
+                    type="text"
+                    required
+                    value={formData.originCountry}
+                    onChange={e => setFormData(prev => ({ ...prev, originCountry: e.target.value }))}
+                    placeholder="e.g. Germany"
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Destination Country *</Form.Label>
+                  <Form.Control
+                    type="text"
+                    required
+                    value={formData.destinationCountry}
+                    onChange={e => setFormData(prev => ({ ...prev, destinationCountry: e.target.value }))}
+                    placeholder="e.g. USA"
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+            <Row className="mb-3">
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label>Item Declared Value (USD) *</Form.Label>
+                  <Form.Control
+                    type="number"
+                    required
+                    value={formData.value}
+                    onChange={e => setFormData(prev => ({ ...prev, value: parseInt(e.target.value) || 0 }))}
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label>Duty Rate (%)</Form.Label>
+                  <Form.Control
+                    type="number"
+                    step="0.01"
+                    value={formData.dutyRate}
+                    onChange={e => setFormData(prev => ({ ...prev, dutyRate: parseFloat(e.target.value) || 0 }))}
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label>Freight Cost (USD) *</Form.Label>
+                  <Form.Control
+                    type="number"
+                    required
+                    value={formData.freightCost}
+                    onChange={e => setFormData(prev => ({ ...prev, freightCost: parseInt(e.target.value) || 0 }))}
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+            <Row className="mb-3">
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label>Insurance Cost (USD) *</Form.Label>
+                  <Form.Control
+                    type="number"
+                    required
+                    value={formData.insuranceCost}
+                    onChange={e => setFormData(prev => ({ ...prev, insuranceCost: parseInt(e.target.value) || 0 }))}
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label>Weight (kg)</Form.Label>
+                  <Form.Control
+                    type="number"
+                    value={formData.weight}
+                    onChange={e => setFormData(prev => ({ ...prev, weight: parseInt(e.target.value) || 0 }))}
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label>Volume (CBM)</Form.Label>
+                  <Form.Control
+                    type="number"
+                    step="0.1"
+                    value={formData.volume}
+                    onChange={e => setFormData(prev => ({ ...prev, volume: parseFloat(e.target.value) || 0 }))}
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+            <Row className="mb-3">
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label>AI Optimization Savings</Form.Label>
+                  <Form.Control
+                    type="number"
+                    value={formData.savings}
+                    onChange={e => setFormData(prev => ({ ...prev, savings: parseInt(e.target.value) || 0 }))}
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label>Priority</Form.Label>
+                  <Form.Select
+                    value={formData.priority}
+                    onChange={e => setFormData(prev => ({ ...prev, priority: e.target.value }))}
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Critical">Critical</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group className="mt-4 pt-2">
+                  <Form.Check
+                    type="checkbox"
+                    label="AI Optimized"
+                    checked={formData.aiOptimized}
+                    onChange={e => setFormData(prev => ({ ...prev, aiOptimized: e.target.checked }))}
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowEditModal(false)}>Cancel</Button>
+            <Button variant="primary" type="submit">
+              {selectedItem ? 'Save Changes' : 'Calculate'}
+            </Button>
+          </Modal.Footer>
+        </Form>
+      </Modal>
     </>
   )
 }

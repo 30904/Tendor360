@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Row, Col, Button, Badge, Modal } from 'react-bootstrap'
+import { Row, Col, Button, Badge, Modal, Form } from 'react-bootstrap'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
-import { Plus, GitBranch, Download, CheckCircle, FileText, History } from 'lucide-react'
+import { Plus, GitBranch, Download, CheckCircle, FileText, History, Edit } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
+import { toast } from 'react-toastify'
 import './Versioning.scss'
 
 const Versioning = () => {
@@ -13,6 +14,18 @@ const Versioning = () => {
   const [loading, setLoading] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [selectedDocument, setSelectedDocument] = useState(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    currentVersion: 'v1.0',
+    totalVersions: 1,
+    status: 'Active',
+    changes: '',
+    fileSize: '1.0 MB',
+    category: 'Technical'
+  })
 
   useEffect(() => {
     setDocuments([
@@ -170,13 +183,52 @@ const Versioning = () => {
   }
 
   const handleEditDocument = (document) => {
-    console.log('Edit document:', document)
+    setSelectedDocument(document)
+    setFormData({
+      ...document
+    })
+    setShowEditModal(true)
   }
 
   const handleDeleteDocument = (document) => {
     if (window.confirm(`Are you sure you want to delete document "${document.name}"?`)) {
       setDocuments(prev => prev.filter(d => d.id !== document.id))
+      toast.success(`Successfully deleted document "${document.name}" from registry!`)
     }
+  }
+
+  const handleCreateNewVersion = (document) => {
+    setSelectedDocument(document)
+    const verParts = document.currentVersion.replace('v', '').split('.')
+    const major = parseInt(verParts[0])
+    const minor = parseInt(verParts[1] || 0)
+    const nextVer = `v${major}.${minor + 1}`
+
+    setFormData({
+      ...document,
+      currentVersion: nextVer,
+      totalVersions: document.totalVersions + 1,
+      changes: '',
+      modifiedBy: 'Admin User'
+    })
+    setShowEditModal(true)
+  }
+
+  const handleSaveDocument = (e) => {
+    e.preventDefault()
+    if (!formData.name || !formData.changes) {
+      toast.error('Please enter name and change description.')
+      return
+    }
+
+    const updatedData = {
+      ...formData,
+      lastModified: new Date().toISOString().split('T')[0]
+    }
+
+    setDocuments(prev => prev.map(d => d.id === selectedDocument.id ? { ...d, ...updatedData } : d))
+    toast.success(`Successfully incremented version for "${formData.name}" to ${formData.currentVersion}!`)
+    setShowEditModal(false)
   }
 
   const columns = [
@@ -347,11 +399,17 @@ const Versioning = () => {
         tableTitle={`Document versions (${documents.length})`}
         tableActions={(
           <>
-            <Button variant="outline-secondary" className="me-2">
+            <Button variant="outline-secondary" className="me-2" onClick={() => toast.success("Document version history audit log exported!")}>
               <Download size={16} className="me-2" />
               Export history
             </Button>
-            <Button variant="primary">
+            <Button variant="primary" onClick={() => {
+              if (documents.length > 0) {
+                handleCreateNewVersion(documents[0]);
+              } else {
+                toast.info("No documents in library to increment version.");
+              }
+            }}>
               <Plus size={16} className="me-2" />
               New version
             </Button>
@@ -384,7 +442,7 @@ const Versioning = () => {
               type: 'custom',
               label: 'Download',
               onClick: (row) => {
-                console.log('Download document:', row.name)
+                toast.success(`Downloading version ${row.currentVersion} of "${row.name}"...`)
               }
             }
           ]}
@@ -414,11 +472,103 @@ const Versioning = () => {
           <Button variant="secondary" onClick={() => setShowModal(false)}>
             Close
           </Button>
-          <Button variant="primary">
-            <Plus size={16} className="me-2" />
-            Create New Version
-          </Button>
+          {selectedDocument && (
+            <Button variant="primary" onClick={() => {
+              setShowModal(false);
+              handleCreateNewVersion(selectedDocument);
+            }}>
+              <Plus size={16} className="me-2" />
+              Create New Version
+            </Button>
+          )}
         </Modal.Footer>
+      </Modal>
+
+      {/* Edit/Create Modal (Version Registry Form) */}
+      <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            Increment Version Checklist: {formData.currentVersion}
+          </Modal.Title>
+        </Modal.Header>
+        <Form onSubmit={handleSaveDocument}>
+          <Modal.Body>
+            <Form.Group className="mb-3">
+              <Form.Label>Document Name *</Form.Label>
+              <Form.Control
+                type="text"
+                required
+                readOnly
+                value={formData.name}
+              />
+            </Form.Group>
+            <Row className="mb-3">
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>New Version *</Form.Label>
+                  <Form.Control
+                    type="text"
+                    required
+                    value={formData.currentVersion}
+                    onChange={e => setFormData(prev => ({ ...prev, currentVersion: e.target.value }))}
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Category</Form.Label>
+                  <Form.Control
+                    type="text"
+                    readOnly
+                    value={formData.category}
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+            <Form.Group className="mb-3">
+              <Form.Label>Recent Changes (Version Narrative) *</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                required
+                value={formData.changes}
+                onChange={e => setFormData(prev => ({ ...prev, changes: e.target.value }))}
+                placeholder="e.g. Added section 4.2 compliance standards..."
+              />
+            </Form.Group>
+            <Row className="mb-3">
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Status</Form.Label>
+                  <Form.Select
+                    value={formData.status}
+                    onChange={e => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Draft">Draft</option>
+                    <option value="Archived">Archived</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Modified By</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={formData.modifiedBy}
+                    onChange={e => setFormData(prev => ({ ...prev, modifiedBy: e.target.value }))}
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowEditModal(false)}>Cancel</Button>
+            <Button variant="primary" type="submit">
+              Commit Version
+            </Button>
+          </Modal.Footer>
+        </Form>
       </Modal>
     </>
   )

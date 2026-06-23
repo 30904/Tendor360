@@ -1,16 +1,42 @@
 import React, { useState, useEffect } from 'react'
-import { Button, Badge, Alert, Row, Col } from 'react-bootstrap'
+import { Button, Badge, Alert, Row, Col, Modal, Form } from 'react-bootstrap'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
-import { TrendingUp, Plus, DollarSign, Calendar, Target, AlertTriangle } from 'lucide-react'
+import { TrendingUp, Plus, DollarSign, Calendar, Target, AlertTriangle, Edit, Brain } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
+import { toast } from 'react-toastify'
 import './Cashflow.scss'
 
 const Cashflow = () => {
   const navigate = useNavigate()
   const [cashflows, setCashflows] = useState([])
   const [stats, setStats] = useState({})
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showForecastModal, setShowForecastModal] = useState(false)
+  const [selectedCashflow, setSelectedCashflow] = useState(null)
+
+  const [formData, setFormData] = useState({
+    projectName: '',
+    client: '',
+    totalValue: 0,
+    currency: 'USD',
+    status: 'Active',
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    currentPhase: 'Planning',
+    progress: 0,
+    cashInflow: 0,
+    cashOutflow: 0,
+    netCashflow: 0,
+    aiForecast: '',
+    riskLevel: 'Low',
+    priority: 'Medium',
+    lastUpdate: new Date().toISOString().split('T')[0],
+    nextMilestone: '',
+    daysRemaining: 100
+  })
 
   useEffect(() => {
     // Mock data for cashflows
@@ -156,19 +182,79 @@ const Cashflow = () => {
   }, [])
 
   const handleViewCashflow = (cashflow) => {
-    console.log('View cashflow:', cashflow)
-    // Navigate to view cashflow or open view modal
+    setSelectedCashflow(cashflow)
+    setShowViewModal(true)
   }
 
   const handleEditCashflow = (cashflow) => {
-    console.log('Edit cashflow:', cashflow)
-    // Navigate to edit cashflow or open edit modal
+    setSelectedCashflow(cashflow)
+    setFormData({
+      ...cashflow
+    })
+    setShowEditModal(true)
   }
 
   const handleDeleteCashflow = (cashflow) => {
-    if (window.confirm('Are you sure you want to delete this cashflow?')) {
+    if (window.confirm(`Are you sure you want to delete cashflow configuration for "${cashflow.projectName}"?`)) {
       setCashflows(prev => prev.filter(c => c.id !== cashflow.id))
+      toast.success(`Successfully deleted cashflow for "${cashflow.projectName}"!`)
     }
+  }
+
+  const handleCreateCashflow = () => {
+    setSelectedCashflow(null)
+    setFormData({
+      projectName: '',
+      client: '',
+      totalValue: 0,
+      currency: 'USD',
+      status: 'Active',
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      currentPhase: 'Planning',
+      progress: 0,
+      cashInflow: 0,
+      cashOutflow: 0,
+      netCashflow: 0,
+      aiForecast: 'Optimistic inflows expected',
+      riskLevel: 'Low',
+      priority: 'Medium',
+      lastUpdate: new Date().toISOString().split('T')[0],
+      nextMilestone: 'Kickoff',
+      daysRemaining: 100
+    })
+    setShowEditModal(true)
+  }
+
+  const handleSaveCashflow = (e) => {
+    e.preventDefault()
+    if (!formData.projectName || !formData.client) {
+      toast.error('Please fill in all required fields.')
+      return
+    }
+
+    const calculatedNet = formData.cashInflow - formData.cashOutflow
+
+    const updatedData = {
+      ...formData,
+      netCashflow: calculatedNet,
+      lastUpdate: new Date().toISOString().split('T')[0]
+    }
+
+    if (selectedCashflow) {
+      setCashflows(prev => prev.map(c => c.id === selectedCashflow.id ? { ...c, ...updatedData } : c))
+      toast.success(`Successfully updated cashflow for "${formData.projectName}"!`)
+    } else {
+      const newId = cashflows.length ? Math.max(...cashflows.map(c => c.id)) + 1 : 1
+      const newCashflow = {
+        id: newId,
+        ...updatedData
+      }
+      setCashflows(prev => [newCashflow, ...prev])
+      toast.success(`Successfully created new cashflow program for "${formData.projectName}"!`)
+    }
+
+    setShowEditModal(false)
   }
 
   // Column definitions for DataTable
@@ -376,11 +462,11 @@ const Cashflow = () => {
         tableTitle={`Project cashflow (${cashflows.length})`}
         tableActions={(
           <>
-            <Button variant="primary" className="me-2">
+            <Button variant="primary" className="me-2" onClick={handleCreateCashflow}>
               <Plus size={16} className="me-2" />
               Create New Cashflow
             </Button>
-            <Button variant="outline-secondary">
+            <Button variant="outline-secondary" onClick={() => toast.success("Cashflow projection report exported successfully!")}>
               <TrendingUp size={16} className="me-2" />
               Export Report
             </Button>
@@ -415,7 +501,8 @@ const Cashflow = () => {
               type: 'custom',
               label: 'AI Forecast',
               onClick: (row) => {
-                console.log('AI Forecast:', row.aiForecast);
+                setSelectedCashflow(row)
+                setShowForecastModal(true)
               }
             }
           ]}
@@ -424,6 +511,321 @@ const Cashflow = () => {
           loading={false}
         />
       </ExecutiveCommandCenter>
+
+      {/* View Modal */}
+      <Modal show={showViewModal} onHide={() => setShowViewModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title className="d-flex align-items-center">
+            <Calendar size={20} className="me-2 text-primary" />
+            Project Cashflow Details
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedCashflow && (
+            <div className="p-2">
+              <h5 className="mb-3 text-primary">{selectedCashflow.projectName}</h5>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <strong>Client:</strong> {selectedCashflow.client}
+                </Col>
+                <Col md={6}>
+                  <strong>Total Value:</strong> ${selectedCashflow.totalValue.toLocaleString()} {selectedCashflow.currency}
+                </Col>
+              </Row>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <strong>Start Date:</strong> {selectedCashflow.startDate}
+                </Col>
+                <Col md={6}>
+                  <strong>End Date:</strong> {selectedCashflow.endDate}
+                </Col>
+              </Row>
+              <Row className="mb-3">
+                <Col md={4}>
+                  <strong>Cash Inflow:</strong> ${selectedCashflow.cashInflow.toLocaleString()}
+                </Col>
+                <Col md={4}>
+                  <strong>Cash Outflow:</strong> ${selectedCashflow.cashOutflow.toLocaleString()}
+                </Col>
+                <Col md={4}>
+                  <strong>Net Cashflow:</strong>{' '}
+                  <span className={selectedCashflow.netCashflow >= 0 ? 'text-success fw-bold' : 'text-danger fw-bold'}>
+                    ${selectedCashflow.netCashflow.toLocaleString()}
+                  </span>
+                </Col>
+              </Row>
+              <Row className="mb-3">
+                <Col md={4}>
+                  <strong>Phase:</strong> {selectedCashflow.currentPhase} ({selectedCashflow.progress}% complete)
+                </Col>
+                <Col md={4}>
+                  <strong>Next Milestone:</strong> {selectedCashflow.nextMilestone}
+                </Col>
+                <Col md={4}>
+                  <strong>Days Remaining:</strong> {selectedCashflow.daysRemaining} days
+                </Col>
+              </Row>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <strong>Risk Level:</strong> <Badge bg={selectedCashflow.riskLevel === 'High' ? 'danger' : selectedCashflow.riskLevel === 'Medium' ? 'warning' : 'success'}>{selectedCashflow.riskLevel}</Badge>
+                </Col>
+                <Col md={6}>
+                  <strong>Status:</strong> <Badge bg={selectedCashflow.status === 'Active' ? 'success' : 'secondary'}>{selectedCashflow.status}</Badge>
+                </Col>
+              </Row>
+              <hr />
+              <div>
+                <h6>AI Cashflow Forecast</h6>
+                <Alert variant="info" className="d-flex align-items-start mt-2">
+                  <Brain size={18} className="me-2 mt-1 flex-shrink-0" />
+                  <div>
+                    <div><strong>Forecast Summary:</strong> {selectedCashflow.aiForecast}</div>
+                    <div className="mt-1 text-muted"><small>Last updated: {selectedCashflow.lastUpdate}</small></div>
+                  </div>
+                </Alert>
+              </div>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowViewModal(false)}>Close</Button>
+          {selectedCashflow && (
+            <Button variant="primary" onClick={() => { setShowViewModal(false); handleEditCashflow(selectedCashflow); }}>
+              <Edit size={16} className="me-2" />
+              Edit Projections
+            </Button>
+          )}
+        </Modal.Footer>
+      </Modal>
+
+      {/* Edit/Create Modal */}
+      <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            {selectedCashflow ? 'Edit Cashflow Projections' : 'New Project Cashflow setup'}
+          </Modal.Title>
+        </Modal.Header>
+        <Form onSubmit={handleSaveCashflow}>
+          <Modal.Body>
+            <Form.Group className="mb-3">
+              <Form.Label>Project Name *</Form.Label>
+              <Form.Control
+                type="text"
+                required
+                value={formData.projectName}
+                onChange={e => setFormData(prev => ({ ...prev, projectName: e.target.value }))}
+                placeholder="e.g. Highway Construction Phase 3"
+              />
+            </Form.Group>
+            <Row className="mb-3">
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Client *</Form.Label>
+                  <Form.Control
+                    type="text"
+                    required
+                    value={formData.client}
+                    onChange={e => setFormData(prev => ({ ...prev, client: e.target.value }))}
+                    placeholder="e.g. Ministry of Transport"
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Total Project Value (USD) *</Form.Label>
+                  <Form.Control
+                    type="number"
+                    required
+                    value={formData.totalValue}
+                    onChange={e => setFormData(prev => ({ ...prev, totalValue: parseInt(e.target.value) || 0 }))}
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+            <Row className="mb-3">
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Start Date</Form.Label>
+                  <Form.Control
+                    type="date"
+                    value={formData.startDate}
+                    onChange={e => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>End Date</Form.Label>
+                  <Form.Control
+                    type="date"
+                    value={formData.endDate}
+                    onChange={e => setFormData(prev => ({ ...prev, endDate: e.target.value }))}
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+            <Row className="mb-3">
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label>Cash Inflow (USD)</Form.Label>
+                  <Form.Control
+                    type="number"
+                    value={formData.cashInflow}
+                    onChange={e => setFormData(prev => ({ ...prev, cashInflow: parseInt(e.target.value) || 0 }))}
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label>Cash Outflow (USD)</Form.Label>
+                  <Form.Control
+                    type="number"
+                    value={formData.cashOutflow}
+                    onChange={e => setFormData(prev => ({ ...prev, cashOutflow: parseInt(e.target.value) || 0 }))}
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label>Progress (% Complete)</Form.Label>
+                  <Form.Control
+                    type="number"
+                    value={formData.progress}
+                    onChange={e => setFormData(prev => ({ ...prev, progress: parseInt(e.target.value) || 0 }))}
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+            <Row className="mb-3">
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label>Current Phase</Form.Label>
+                  <Form.Select
+                    value={formData.currentPhase}
+                    onChange={e => setFormData(prev => ({ ...prev, currentPhase: e.target.value }))}
+                  >
+                    <option value="Planning">Planning</option>
+                    <option value="Design">Design</option>
+                    <option value="Development">Development</option>
+                    <option value="Implementation">Implementation</option>
+                    <option value="Testing">Testing</option>
+                    <option value="Construction">Construction</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label>Next Milestone</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={formData.nextMilestone}
+                    onChange={e => setFormData(prev => ({ ...prev, nextMilestone: e.target.value }))}
+                    placeholder="e.g. Design Approval"
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label>Days Remaining</Form.Label>
+                  <Form.Control
+                    type="number"
+                    value={formData.daysRemaining}
+                    onChange={e => setFormData(prev => ({ ...prev, daysRemaining: parseInt(e.target.value) || 0 }))}
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+            <Row className="mb-3">
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label>Risk Level</Form.Label>
+                  <Form.Select
+                    value={formData.riskLevel}
+                    onChange={e => setFormData(prev => ({ ...prev, riskLevel: e.target.value }))}
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label>Priority</Form.Label>
+                  <Form.Select
+                    value={formData.priority}
+                    onChange={e => setFormData(prev => ({ ...prev, priority: e.target.value }))}
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Critical">Critical</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label>Status</Form.Label>
+                  <Form.Select
+                    value={formData.status}
+                    onChange={e => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Planning">Planning</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+            </Row>
+            <Form.Group className="mb-3">
+              <Form.Label>AI Forecast & Outlook</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={2}
+                value={formData.aiForecast}
+                onChange={e => setFormData(prev => ({ ...prev, aiForecast: e.target.value }))}
+              />
+            </Form.Group>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowEditModal(false)}>Cancel</Button>
+            <Button variant="primary" type="submit">
+              {selectedCashflow ? 'Save Changes' : 'Create Projection'}
+            </Button>
+          </Modal.Footer>
+        </Form>
+      </Modal>
+
+      {/* AI Forecast Modal */}
+      <Modal show={showForecastModal} onHide={() => setShowForecastModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title className="d-flex align-items-center">
+            <Brain size={20} className="me-2 text-info" />
+            AI Liquidity Analysis
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedCashflow && (
+            <div>
+              <h6 className="text-primary">{selectedCashflow.projectName}</h6>
+              <div className="mt-3">
+                <strong>Projected Runway Outlook:</strong> {selectedCashflow.aiForecast}
+              </div>
+              <div className="mt-2">
+                <strong>Net Liquid Posture:</strong>{' '}
+                <span className={selectedCashflow.netCashflow >= 0 ? 'text-success fw-bold' : 'text-danger fw-bold'}>
+                  ${selectedCashflow.netCashflow.toLocaleString()}
+                </span>
+              </div>
+              <Alert variant="warning" className="mt-3">
+                AI Liquidity Analysis forecasts payment delays based on historic counterparty billing timelines. Ensure milestone achievements are submitted 15 days in advance of the forecast dip.
+              </Alert>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowForecastModal(false)}>Close</Button>
+        </Modal.Footer>
+      </Modal>
     </>
   )
 }

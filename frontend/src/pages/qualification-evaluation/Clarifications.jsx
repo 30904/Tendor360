@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
 import './Clarifications.scss'
 import { dummyClarificationReply } from '../../utils/testFormDummies'
+import { toast } from 'react-toastify'
 
 const Clarifications = () => {
   const navigate = useNavigate()
@@ -17,6 +18,8 @@ const Clarifications = () => {
   const [showModal, setShowModal] = useState(false)
   const [selectedClarification, setSelectedClarification] = useState(null)
   const [replyText, setReplyText] = useState('')
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [viewingClarification, setViewingClarification] = useState(null)
 
   useEffect(() => {
     loadClarifications()
@@ -186,13 +189,12 @@ const Clarifications = () => {
   }
 
   const handleViewClarification = (clarification) => {
-    console.log('View clarification:', clarification)
-    // Navigate to view clarification or open view modal
+    setViewingClarification(clarification)
+    setShowViewModal(true)
   }
 
   const handleEditClarification = (clarification) => {
-    console.log('Edit clarification:', clarification)
-    // Navigate to edit clarification or open edit modal
+    toast.info(`Editing clarification "${clarification.tenderTitle}" is disabled in Demo Mode. To reply, click the Reply button.`)
   }
 
   const handleDeleteClarification = (clarification) => {
@@ -541,6 +543,74 @@ const Clarifications = () => {
             </Button>
           </Modal.Footer>
         </FormDrawerModal>
+
+      {/* Details View Modal */}
+      <Modal show={showViewModal} onHide={() => { setShowViewModal(false); setViewingClarification(null); }} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <MessageCircle size={20} className="me-2 text-primary" />
+            Clarification Details
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {viewingClarification && (
+            <div className="clarification-view-details">
+              <Row className="mb-3">
+                <Col md={12}>
+                  <h6>{viewingClarification.tenderId} - {viewingClarification.tenderTitle}</h6>
+                  <p><strong>Asked By:</strong> {viewingClarification.askedBy} on {new Date(viewingClarification.askedDate).toLocaleString()}</p>
+                </Col>
+              </Row>
+              <Row className="mb-3">
+                <Col md={4}>
+                  <strong>Status:</strong> {getStatusBadge(viewingClarification.status)}
+                </Col>
+                <Col md={4}>
+                  <strong>Priority:</strong> {getPriorityBadge(viewingClarification.priority)}
+                </Col>
+                <Col md={4}>
+                  <strong>Category:</strong> {getCategoryBadge(viewingClarification.category)}
+                </Col>
+              </Row>
+              <hr />
+              <div className="p-3 border rounded bg-light mb-3">
+                <h6 className="text-muted mb-2">Question Asked</h6>
+                <p className="mb-0 text-dark fw-medium">{viewingClarification.question}</p>
+              </div>
+              
+              {viewingClarification.replies && viewingClarification.replies.length > 0 ? (
+                <div className="existing-replies mb-3">
+                  <h6>Replies:</h6>
+                  {viewingClarification.replies.map((reply) => (
+                    <div key={reply.id} className="reply-item mb-2 p-2 border rounded bg-white">
+                      <div className="reply-text text-dark">{reply.reply}</div>
+                      <small className="text-muted">
+                        By {reply.repliedBy} on {new Date(reply.repliedDate).toLocaleString()}
+                      </small>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <Alert variant="info" className="mb-0">No replies logged yet for this clarification request.</Alert>
+              )}
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => { setShowViewModal(false); setViewingClarification(null); }}>
+            Close
+          </Button>
+          {viewingClarification && viewingClarification.status === 'PENDING' && (
+            <Button variant="primary" onClick={() => {
+              setShowViewModal(false);
+              handleReply(viewingClarification);
+            }}>
+              <Send size={16} className="me-2" />
+              Reply Now
+            </Button>
+          )}
+        </Modal.Footer>
+      </Modal>
     </>
   )
 }

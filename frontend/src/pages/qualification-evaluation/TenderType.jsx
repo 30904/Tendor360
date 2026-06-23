@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Row, Col, Button, Badge } from 'react-bootstrap'
+import { Row, Col, Button, Badge, Modal, Form } from 'react-bootstrap'
 import { FileType, Plus, Edit, Trash2, Eye, CheckCircle, AlertTriangle, Settings, Brain, Target } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'react-toastify'
 import DataTable from '../../components/DataTable'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
@@ -11,6 +12,9 @@ const TenderType = () => {
   const navigate = useNavigate()
   const [tenderTypes, setTenderTypes] = useState([])
   const [stats, setStats] = useState({})
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [showConfigureModal, setShowConfigureModal] = useState(false)
+  const [selectedType, setSelectedType] = useState(null)
 
   useEffect(() => {
     setTenderTypes([
@@ -136,13 +140,12 @@ const TenderType = () => {
   }, [])
 
   const handleViewTenderType = (tenderType) => {
-    console.log('View tender type:', tenderType)
-    // Navigate to view tender type or open view modal
+    setSelectedType(tenderType)
+    setShowViewModal(true)
   }
 
   const handleEditTenderType = (tenderType) => {
-    console.log('Edit tender type:', tenderType)
-    // Navigate to edit tender type or open edit modal
+    toast.info(`Editing tender type "${tenderType.name}" is disabled in Demo Mode.`)
   }
 
   const handleDeleteTenderType = (tenderType) => {
@@ -294,7 +297,8 @@ const TenderType = () => {
   }, [stats])
 
   return (
-    <ExecutiveCommandCenter
+    <>
+      <ExecutiveCommandCenter
       className="tender-type-page"
       breadcrumbs={[
         { label: 'Qualification & Evaluation', onClick: () => navigate('/qualification-evaluation') },
@@ -364,11 +368,11 @@ const TenderType = () => {
       tableTitle={`Tender types (${tenderTypes.length})`}
       tableActions={(
         <>
-          <Button variant="primary" className="me-2">
+          <Button variant="primary" className="me-2" onClick={() => toast.info("Creating tender types is disabled in Demo Mode.")}>
             <Plus size={16} className="me-2" />
             New tender type
           </Button>
-          <Button variant="outline-secondary">
+          <Button variant="outline-secondary" onClick={() => toast.info("Global settings are locked.")}>
             <Settings size={16} className="me-2" />
             Configure
           </Button>
@@ -394,7 +398,8 @@ const TenderType = () => {
             type: 'custom',
             label: 'Configure Criteria',
             onClick: (row) => {
-              console.log('Configure Criteria:', row);
+              setSelectedType(row);
+              setShowConfigureModal(true);
             }
           }
         ]}
@@ -403,6 +408,126 @@ const TenderType = () => {
         loading={false}
       />
     </ExecutiveCommandCenter>
+
+      {/* Details View Modal */}
+      <Modal show={showViewModal} onHide={() => { setShowViewModal(false); setSelectedType(null); }} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <FileType size={20} className="me-2 text-primary" />
+            Tender Type Details - {selectedType?.name}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedType && (
+            <div className="tender-type-view-details">
+              <Row className="mb-4">
+                <Col md={6}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <h6 className="text-muted mb-2">Details</h6>
+                    <p className="mb-1"><strong>Code:</strong> {selectedType.code}</p>
+                    <p className="mb-1"><strong>Category:</strong> {selectedType.category}</p>
+                    <p className="mb-1"><strong>Status:</strong> <Badge bg={selectedType.status === 'Active' ? 'success' : 'secondary'}>{selectedType.status}</Badge></p>
+                    <p className="mb-0"><strong>Passing Score:</strong> {selectedType.passingScore}%</p>
+                  </div>
+                </Col>
+                <Col md={6}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <h6 className="text-muted mb-2">Metrics & Author</h6>
+                    <p className="mb-1"><strong>Usage Count:</strong> {selectedType.usageCount} times</p>
+                    <p className="mb-1"><strong>Created By:</strong> {selectedType.createdBy}</p>
+                    <p className="mb-1"><strong>Created Date:</strong> {selectedType.createdDate}</p>
+                    <p className="mb-0"><strong>Last Used Date:</strong> {selectedType.lastUsed}</p>
+                  </div>
+                </Col>
+              </Row>
+              <Row className="mb-4">
+                <Col md={12}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <h6 className="text-muted mb-2">Description</h6>
+                    <p className="mb-0">{selectedType.description}</p>
+                  </div>
+                </Col>
+              </Row>
+              <Row className="mb-4">
+                <Col md={12}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <h6 className="text-muted mb-2">Evaluation Criteria Hooked</h6>
+                    <div className="d-flex flex-wrap gap-2">
+                      {selectedType.evaluationCriteria?.map((crit, idx) => (
+                        <Badge bg="info" key={idx}>{crit}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                </Col>
+              </Row>
+              <Row>
+                <Col md={12}>
+                  <div className="p-3 border rounded bg-light">
+                    <h6 className="text-muted mb-2">AI Guidance Mode</h6>
+                    <Alert variant={selectedType.aiOptimization === 'Enabled' ? 'success' : 'warning'} className="mb-0 d-flex align-items-center">
+                      <Brain size={16} className="me-2 text-primary" />
+                      <div>
+                        <strong>AI Optimization:</strong> {selectedType.aiOptimization} • 
+                        <strong> Model Stance Confidence:</strong> {selectedType.aiConfidence}%
+                      </div>
+                    </Alert>
+                  </div>
+                </Col>
+              </Row>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => { setShowViewModal(false); setSelectedType(null); }}>
+            Close
+          </Button>
+          <Button variant="primary" onClick={() => {
+            setShowViewModal(false);
+            handleEditTenderType(selectedType);
+          }}>
+            <Edit size={16} className="me-2" />
+            Edit Type
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Configure Criteria Modal */}
+      <Modal show={showConfigureModal} onHide={() => { setShowConfigureModal(false); setSelectedType(null); }} size="md">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <Settings size={20} className="me-2 text-info" />
+            Configure Criteria - {selectedType?.name}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedType && (
+            <div className="configure-criteria-flow">
+              <p className="text-muted small">Select active scoring categories for this tender type. AI validation operates on all selected domains.</p>
+              <Form onSubmit={(e) => { e.preventDefault(); setShowConfigureModal(false); toast.success("Evaluation criteria configured successfully!"); }}>
+                {['Technical', 'Financial', 'Compliance', 'Experience', 'Delivery', 'Safety'].map((crit, idx) => (
+                  <Form.Check 
+                    type="checkbox"
+                    id={`crit-check-${idx}`}
+                    label={crit}
+                    key={idx}
+                    className="mb-2"
+                    defaultChecked={selectedType.evaluationCriteria?.includes(crit) || idx < 3}
+                  />
+                ))}
+              </Form>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => { setShowConfigureModal(false); setSelectedType(null); }}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={() => { setShowConfigureModal(false); setSelectedType(null); toast.success("Evaluation criteria configured successfully!"); }}>
+            Save Configuration
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    </>
   )
 }
 

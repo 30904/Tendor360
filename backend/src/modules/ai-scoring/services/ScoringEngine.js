@@ -90,6 +90,29 @@ class ScoringEngine {
       estimatedValue: tender.estimatedValue
     });
 
+    // Determine how the scoring was actually performed so we can persist it
+    // and surface it to the caller rather than silently mixing AI/heuristic results.
+    let scoringMethod;
+    if (aiSummary?.provider === 'heuristic') {
+      if (aiSummary?.fallbackReason) {
+        // AI key was configured but the API call failed — heuristic stepped in.
+        scoringMethod = 'ai_fallback';
+        console.warn(
+          `[AI-WARN] Scoring for tender "${tenderId}" used heuristic fallback. ` +
+          `Real AI provider failed: ${aiSummary.fallbackReason}`
+        );
+      } else {
+        // No valid AI key configured — heuristic was the only option.
+        scoringMethod = 'heuristic';
+        console.warn(
+          `[AI-WARN] Scoring for tender "${tenderId}" used heuristic (no real AI provider configured). ` +
+          `Set OPENAI_API_KEY (must start with "sk-") to enable GenAI relevancy scoring.`
+        );
+      }
+    } else {
+      scoringMethod = 'ai';
+    }
+
     if (aiSummary?.classification?.relevancy != null) {
       dimensions.relevancy = clampScore(aiSummary.classification.relevancy);
     }
@@ -106,6 +129,7 @@ class ScoringEngine {
         dimensions,
         compositeScore,
         recommendation,
+        scoringMethod,
         rationale: aiSummary?.summary || 'Heuristic scoring applied from opportunity metadata.',
         modelProvider: aiSummary?.provider || 'heuristic'
       },

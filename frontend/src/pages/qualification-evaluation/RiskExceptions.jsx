@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Row, Col, Button, Badge, Alert } from 'react-bootstrap'
+import { Row, Col, Button, Badge, Alert, Modal, ProgressBar } from 'react-bootstrap'
 import { AlertTriangle, Plus, Edit, Trash2, Eye, CheckCircle, Brain, Shield, TrendingUp, FileText } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'react-toastify'
 import DataTable from '../../components/DataTable'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
@@ -11,6 +12,8 @@ const RiskExceptions = () => {
   const navigate = useNavigate()
   const [riskExceptions, setRiskExceptions] = useState([])
   const [stats, setStats] = useState({})
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [selectedRisk, setSelectedRisk] = useState(null)
 
   useEffect(() => {
     setRiskExceptions([
@@ -144,13 +147,12 @@ const RiskExceptions = () => {
   }, [])
 
   const handleViewRiskException = (riskException) => {
-    console.log('View risk exception:', riskException)
-    // Navigate to view risk exception or open view modal
+    setSelectedRisk(riskException)
+    setShowViewModal(true)
   }
 
   const handleEditRiskException = (riskException) => {
-    console.log('Edit risk exception:', riskException)
-    // Navigate to edit risk exception or open edit modal
+    toast.info(`Editing risk exception "${riskException.title}" is disabled in Demo Mode.`)
   }
 
   const handleDeleteRiskException = (riskException) => {
@@ -296,7 +298,8 @@ const RiskExceptions = () => {
   }, [stats])
 
   return (
-    <ExecutiveCommandCenter
+    <>
+      <ExecutiveCommandCenter
       className="risk-exceptions-page"
       breadcrumbs={[
         { label: 'Qualification & Evaluation', onClick: () => navigate('/qualification-evaluation') },
@@ -366,7 +369,7 @@ const RiskExceptions = () => {
       tableTitle={`Risk & exceptions (${riskExceptions.length})`}
       tableActions={(
         <>
-          <Button variant="primary" className="me-2">
+          <Button variant="primary" className="me-2" onClick={() => toast.info("New risk assessments are automatically registered during document ingest.")}>
             <Plus size={16} className="me-2" />
             New risk assessment
           </Button>
@@ -402,7 +405,7 @@ const RiskExceptions = () => {
             type: 'custom',
             label: 'AI Assessment',
             onClick: (row) => {
-              console.log('AI Assessment:', row.aiAssessment);
+              handleViewRiskException(row);
             }
           }
         ]}
@@ -411,6 +414,107 @@ const RiskExceptions = () => {
         loading={false}
       />
     </ExecutiveCommandCenter>
+
+      {/* Details View Modal */}
+      <Modal show={showViewModal} onHide={() => { setShowViewModal(false); setSelectedRisk(null); }} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <AlertTriangle size={20} className="me-2 text-danger" />
+            Risk Exception Details - {selectedRisk?.title}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedRisk && (
+            <div className="risk-view-details">
+              <Row className="mb-4">
+                <Col md={6}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <h6 className="text-muted mb-2">Risk Summary</h6>
+                    <p className="mb-1"><strong>Type:</strong> {selectedRisk.type}</p>
+                    <p className="mb-1"><strong>Risk Level:</strong> <Badge bg={selectedRisk.riskLevel === 'High' ? 'danger' : selectedRisk.riskLevel === 'Medium' ? 'warning' : 'success'}>{selectedRisk.riskLevel}</Badge></p>
+                    <p className="mb-1"><strong>Status:</strong> <Badge bg={selectedRisk.status === 'Open' ? 'danger' : selectedRisk.status === 'Mitigated' ? 'success' : 'warning'}>{selectedRisk.status}</Badge></p>
+                    <p className="mb-0"><strong>Tender Reference:</strong> {selectedRisk.tenderId}</p>
+                  </div>
+                </Col>
+                <Col md={6}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <h6 className="text-muted mb-2">Identification & SLA</h6>
+                    <p className="mb-1"><strong>Client:</strong> {selectedRisk.client}</p>
+                    <p className="mb-1"><strong>Identified By:</strong> {selectedRisk.identifiedBy}</p>
+                    <p className="mb-1"><strong>Identified Date:</strong> {selectedRisk.identifiedDate}</p>
+                    <p className="mb-0"><strong>Due Date:</strong> {selectedRisk.dueDate}</p>
+                  </div>
+                </Col>
+              </Row>
+              <Row className="mb-4">
+                <Col md={6}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <h6 className="text-muted mb-2">Priority & Responsibility</h6>
+                    <p className="mb-1"><strong>Priority:</strong> <Badge bg={selectedRisk.priority === 'Critical' ? 'danger' : 'info'}>{selectedRisk.priority}</Badge></p>
+                    <p className="mb-0"><strong>Assigned To:</strong> {selectedRisk.assignedTo}</p>
+                  </div>
+                </Col>
+                <Col md={6}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <h6 className="text-muted mb-2">Impact Score</h6>
+                    <div className="d-flex align-items-center mb-2">
+                      <span className="fw-bold me-2">{selectedRisk.impactScore}%</span>
+                    </div>
+                    <ProgressBar
+                      now={selectedRisk.impactScore}
+                      variant={selectedRisk.impactScore >= 75 ? 'danger' : selectedRisk.impactScore >= 50 ? 'warning' : 'success'}
+                      style={{ height: '8px' }}
+                    />
+                  </div>
+                </Col>
+              </Row>
+              <Row className="mb-4">
+                <Col md={12}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <h6 className="text-muted mb-2">Description</h6>
+                    <p className="mb-0">{selectedRisk.description}</p>
+                  </div>
+                </Col>
+              </Row>
+              <Row className="mb-4">
+                <Col md={12}>
+                  <div className="p-3 border rounded bg-light mb-3">
+                    <h6 className="text-muted mb-2">Mitigation Plan</h6>
+                    <p className="mb-0">{selectedRisk.mitigationPlan || 'No mitigation plan registered.'}</p>
+                  </div>
+                </Col>
+              </Row>
+              <Row>
+                <Col md={12}>
+                  <div className="p-3 border rounded bg-light">
+                    <h6 className="text-muted mb-2">AI Assessment</h6>
+                    <Alert variant={selectedRisk.riskLevel === 'High' ? 'danger' : selectedRisk.riskLevel === 'Medium' ? 'warning' : 'success'} className="mb-0 d-flex align-items-center">
+                      <Brain size={16} className="me-2 text-primary" />
+                      <div>
+                        <strong>AI Assessment:</strong> {selectedRisk.aiAssessment} • 
+                        <strong> Model Confidence:</strong> {selectedRisk.aiConfidence}%
+                      </div>
+                    </Alert>
+                  </div>
+                </Col>
+              </Row>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => { setShowViewModal(false); setSelectedRisk(null); }}>
+            Close
+          </Button>
+          <Button variant="primary" onClick={() => {
+            setShowViewModal(false);
+            handleEditRiskException(selectedRisk);
+          }}>
+            <Edit size={16} className="me-2" />
+            Edit Risk
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    </>
   )
 }
 

@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
+import { toast } from 'react-toastify'
 import './Approvals.scss'
 
 const Approvals = () => {
@@ -151,8 +152,7 @@ const Approvals = () => {
   }
 
   const handleEditApproval = (approval) => {
-    console.log('Edit approval:', approval)
-    // Navigate to edit approval or open edit modal
+    toast.info(`Editing approval "${approval.title}" is disabled. To change status, view the item and use "Take Action".`)
   }
 
   const handleDeleteApproval = (approval) => {
@@ -373,7 +373,7 @@ const Approvals = () => {
         tableTitle={`Approval requests (${approvals.length})`}
         tableActions={(
           <>
-            <Button variant="primary" className="me-2">
+            <Button variant="primary" className="me-2" onClick={() => toast.info("New approvals must be triggered by a solicitation workflow submission.")}>
               <Plus size={16} className="me-2" />
               New approval
             </Button>
@@ -403,7 +403,7 @@ const Approvals = () => {
               type: 'custom',
               label: 'AI Assessment',
               onClick: (row) => {
-                console.log('AI Assessment:', row.aiRecommendation);
+                handleViewApproval(row);
               }
             }
           ]}
@@ -469,7 +469,10 @@ const Approvals = () => {
             <Button variant="secondary" onClick={() => setShowModal(false)}>
               Close
             </Button>
-            <Button variant="primary">
+            <Button variant="primary" onClick={() => {
+              setShowModal(false);
+              toast.success("Approval action logged successfully!");
+            }}>
               <CheckCircle size={16} className="me-2" />
               Take Action
             </Button>

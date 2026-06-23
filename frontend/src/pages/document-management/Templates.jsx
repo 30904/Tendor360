@@ -3,9 +3,10 @@ import { Row, Col, Button, Form, Badge, Modal } from 'react-bootstrap'
 import FormDrawerModal from '../../components/FormDrawerModal'
 import ExecutiveCommandCenter from '../../components/intelligence/ExecutiveCommandCenter'
 import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
-import { Plus, FileText, Layers, CheckCircle, BookOpen } from 'lucide-react'
+import { Plus, FileText, Layers, CheckCircle, BookOpen, Edit, Download } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
+import { toast } from 'react-toastify'
 import './Templates.scss'
 import { dummyTemplateForm } from '../../utils/testFormDummies'
 
@@ -15,6 +16,8 @@ const Templates = () => {
   const [loading, setLoading] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState(null)
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [selectedTemplate, setSelectedTemplate] = useState(null)
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -208,6 +211,7 @@ const Templates = () => {
           ? { ...template, ...formData, lastModified: new Date().toISOString() }
           : template
       ))
+      toast.success(`Successfully updated template "${formData.name}"!`)
     } else {
       const newTemplate = {
         id: nextId,
@@ -217,6 +221,7 @@ const Templates = () => {
         createdBy: 'Current User'
       }
       setTemplates(prev => [...prev, newTemplate])
+      toast.success(`Successfully created template "${formData.name}"!`)
     }
     setShowModal(false)
     setEditingTemplate(null)
@@ -224,8 +229,10 @@ const Templates = () => {
   }
 
   const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this template?')) {
+    const template = templates.find(t => t.id === id)
+    if (window.confirm(`Are you sure you want to delete template "${template?.name}"?`)) {
       setTemplates(prev => prev.filter(template => template.id !== id))
+      toast.success(`Successfully deleted template "${template?.name}"!`)
     }
   }
 
@@ -254,6 +261,7 @@ const Templates = () => {
       createdBy: 'Current User'
     }
     setTemplates(prev => [...prev, duplicatedTemplate])
+    toast.success(`Duplicated template into "${duplicatedTemplate.name}"!`)
   }
 
   const resetForm = () => {
@@ -275,7 +283,8 @@ const Templates = () => {
   }
 
   const handleViewTemplate = (template) => {
-    console.log('View template:', template)
+    setSelectedTemplate(template)
+    setShowViewModal(true)
   }
 
   const columns = [
@@ -469,7 +478,7 @@ const Templates = () => {
               type: 'custom',
               label: 'Download',
               onClick: (row) => {
-                console.log('Download template:', row.name)
+                toast.success(`Starting download for template "${row.name}"...`)
               }
             }
           ]}
@@ -584,6 +593,89 @@ const Templates = () => {
           </Modal.Footer>
         </Form>
       </FormDrawerModal>
+
+      {/* View Template Modal */}
+      <Modal show={showViewModal} onHide={() => setShowViewModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title className="d-flex align-items-center">
+            <FileText size={20} className="me-2 text-primary" />
+            Template Details
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedTemplate && (
+            <div className="p-2">
+              <h5 className="mb-3 text-primary">{selectedTemplate.name}</h5>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <strong>Category:</strong> {selectedTemplate.category}
+                </Col>
+                <Col md={6}>
+                  <strong>Type:</strong> {selectedTemplate.type}
+                </Col>
+              </Row>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <strong>Status:</strong>{' '}
+                  <Badge bg={selectedTemplate.isActive ? 'success' : 'secondary'}>
+                    {selectedTemplate.isActive ? 'Active' : 'Inactive'}
+                  </Badge>
+                </Col>
+                <Col md={6}>
+                  <strong>Usage Count:</strong> {selectedTemplate.usageCount} times reused
+                </Col>
+              </Row>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <strong>Created By:</strong> {selectedTemplate.createdBy}
+                </Col>
+                <Col md={6}>
+                  <strong>Last Modified:</strong>{' '}
+                  {new Date(selectedTemplate.lastModified).toLocaleDateString()}
+                </Col>
+              </Row>
+              <div className="mb-3">
+                <strong>Tags:</strong>{' '}
+                {selectedTemplate.tags.split(',').map((tag, index) => (
+                  <Badge key={index} bg="info" className="me-1">{tag.trim()}</Badge>
+                ))}
+              </div>
+              <hr />
+              <div className="mb-3">
+                <h6>Description</h6>
+                <p>{selectedTemplate.description}</p>
+              </div>
+              <div className="mb-3">
+                <h6>Template Content Schema</h6>
+                <pre className="p-3 bg-light rounded" style={{ whiteSpace: 'pre-wrap' }}>
+                  {selectedTemplate.content}
+                </pre>
+              </div>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowViewModal(false)}>Close</Button>
+          {selectedTemplate && (
+            <>
+              <Button variant="outline-primary" onClick={() => {
+                setShowViewModal(false);
+                toast.success(`Starting download for template "${selectedTemplate.name}"...`);
+              }}>
+                <Download size={16} className="me-2" />
+                Download Template
+              </Button>
+              <Button variant="primary" onClick={() => {
+                setShowViewModal(false);
+                handleEdit(selectedTemplate);
+              }}>
+                <Edit size={16} className="me-2" />
+                Edit Template
+              </Button>
+            </>
+          )}
+        </Modal.Footer>
+      </Modal>
     </>
   )
 }

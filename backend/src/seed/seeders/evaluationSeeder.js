@@ -1,4 +1,4 @@
-const Evaluation = require('../../models/Evaluation');
+﻿const Evaluation = require('../../models/Evaluation');
 const Tender = require('../../models/Tender');
 const User = require('../../models/User');
 const Company = require('../../models/Company');
@@ -8,24 +8,24 @@ const seedEvaluations = async () => {
     // Get all companies and create evaluations for each
     const companies = await Company.find({ isDeleted: false });
     if (companies.length === 0) {
-      console.log('⚠️ No companies found, skipping evaluation seeding');
+      console.log('ΓÜá∩╕Å No companies found, skipping evaluation seeding');
       return;
     }
 
-    console.log(`✅ Creating evaluations for ${companies.length} companies...`);
+    console.log(`Γ£à Creating evaluations for ${companies.length} companies...`);
 
     for (const company of companies) {
-      console.log(`\n✅ Creating evaluations for ${company.name}...`);
-      
+      console.log(`\nΓ£à Creating evaluations for ${company.name}...`);
+
       // Get tenders and reviewers for this company
       const tenders = await Tender.find({ companyId: company._id }).limit(2);
-      const reviewer = await User.findOne({ 
-        companyId: company._id, 
-        roles: 'REVIEWER' 
+      const reviewer = await User.findOne({
+        companyId: company._id,
+        roles: 'REVIEWER'
       });
-      
+
       if (tenders.length === 0 || !reviewer) {
-        console.log(`⚠️ No tenders or reviewer found for ${company.name}, skipping...`);
+        console.log(`ΓÜá∩╕Å No tenders or reviewer found for ${company.name}, skipping...`);
         continue;
       }
 
@@ -132,28 +132,28 @@ const seedEvaluations = async () => {
           }
         ];
 
-        for (const eval of evaluations) {
-          const existingEval = await Evaluation.findOne({ 
+        for (const evaluationItem of evaluations) {
+          const existingEval = await Evaluation.findOne({
             companyId: company._id,
-            tenderId: eval.tenderId, 
-            evaluator: eval.evaluator 
+            tenderId: evaluationItem.tenderId,
+            evaluator: evaluationItem.evaluator
           });
           if (!existingEval) {
-            await Evaluation.create(eval);
-            console.log(`✅ Created evaluation for tender ${tender.title}`);
+            await Evaluation.create(evaluationItem);
+            console.log(`Γ£à Created evaluation for tender ${tender.title}`);
           } else {
-            console.log(`ℹ️ Evaluation already exists for tender ${tender.title}`);
+            console.log(`Γä╣∩╕Å Evaluation already exists for tender ${tender.title}`);
           }
         }
       }
-      
-      console.log(`✅ Evaluations seeded successfully for ${company.name}`);
+
+      console.log(`Γ£à Evaluations seeded successfully for ${company.name}`);
       console.log('---');
     }
 
-    console.log('✅ All evaluations seeded successfully across all companies');
+    console.log('Γ£à All evaluations seeded successfully across all companies');
   } catch (error) {
-    console.error('❌ Error seeding evaluations:', error);
+    console.error('Γ¥î Error seeding evaluations:', error);
     throw error;
   }
 };

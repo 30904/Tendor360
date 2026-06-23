@@ -145,15 +145,47 @@ class GovWinConnector extends BaseConnector {
       };
     }
 
-    this.validateConfig(config);
-    const result = await this.discover({ config, limit: 1 });
-    return {
-      ok: true,
-      verified: true,
-      isDemo: false,
-      message: `GovWin API reachable. Preview count: ${result.opportunities.length}.`,
-      sampleCount: result.opportunities.length
-    };
+    try {
+      this.validateConfig(config);
+
+      const response = await axios.get(`${config.baseUrl.replace(/\/$/, '')}/opportunities`, {
+        headers: {
+          Authorization: `Bearer ${config.apiKey}`,
+          Accept: 'application/json'
+        },
+        params: {
+          page: 1,
+          pageSize: 1
+        },
+        timeout: 10000,
+        validateStatus: (status) => status < 500
+      });
+
+      if (response.status >= 400) {
+        return {
+          ok: false,
+          verified: false,
+          isDemo: false,
+          message: `GovWin API returned status ${response.status}: ${response.data?.message || 'Unauthorized or bad request'}`
+        };
+      }
+
+      const records = response.data?.items || response.data?.results || [];
+      return {
+        ok: true,
+        verified: true,
+        isDemo: false,
+        message: `GovWin API connection successful. Reachable with ${records.length} sample opportunities.`,
+        sampleCount: records.length
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        verified: false,
+        isDemo: false,
+        message: `GovWin connection test failed: ${error.message}`
+      };
+    }
   }
 }
 

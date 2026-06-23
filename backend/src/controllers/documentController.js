@@ -1,9 +1,12 @@
 const Document = require('../models/Document');
 const Tender = require('../models/Tender');
 const { catchAsync } = require('../utils/errorHandler');
+const path = require('path');
+const fs = require('fs');
 const extractionPipeline = require('../modules/document-intelligence/services/ExtractionPipeline');
-const { readDocumentText } = require('../modules/document-intelligence/services/ExtractionPipeline');
-const documentAI = require('../ai/services/documentAI');
+const { readDocumentText } = extractionPipeline;
+const aiOrchestrator = require('../modules/ai-core/AiOrchestrator');
+const webhookDispatcher = require('../modules/integrations/services/WebhookDispatcherService');
 
 // Get all documents with filters and pagination
 const getDocuments = catchAsync(async (req, res) => {
@@ -107,6 +110,9 @@ const uploadDocument = catchAsync(async (req, res) => {
 
   const document = await Document.create(documentData);
 
+  // Trigger outbound webhook event
+  webhookDispatcher.triggerEvent(req.companyId, 'document.uploaded', document);
+
   // Auto-process tender documents
   if (document.type === 'TENDER_DOCUMENT') {
     // Queue for AI processing
@@ -119,82 +125,34 @@ const uploadDocument = catchAsync(async (req, res) => {
   });
 });
 
-// Process document with AI using ExtractionPipeline + Gemini/OpenAI
+// Process document with AI
 const processDocumentWithAI = async (documentId) => {
-  let document;
-
   try {
-    document = await Document.findById(documentId);
+    const document = await Document.findById(documentId);
     if (!document) return;
 
+    // Update status to processing
     document.status = 'PROCESSING';
     await document.save();
 
-    const text = await readDocumentText(document);
-    if (!text || text.trim().length < 50) {
-      throw new Error('Document contains insufficient readable text for AI extraction');
+    // Route processing to the unified extraction pipeline
+    await extractionPipeline.run(document.companyId, document._id, {
+      pipeline: 'metadata'
+    });
+
+    const updatedDoc = await Document.findById(documentId);
+    if (updatedDoc) {
+      webhookDispatcher.triggerEvent(updatedDoc.companyId, 'document.processed', updatedDoc);
     }
 
-    if (document.companyId) {
-      try {
-        await extractionPipeline.run(document.companyId, documentId, { pipeline: 'full' });
-      } catch (pipelineError) {
-        console.warn(`ExtractionPipeline warning for document ${documentId}:`, pipelineError.message);
-      }
-    }
-
-    const metadata = await documentAI.extractTenderMetadata(
-      text,
-      document.name || document.storage?.originalName || ''
-    );
-
-    const aiResults = {
-      isProcessed: true,
-      processedAt: new Date(),
-      confidence: metadata.confidence,
-      extractedData: {
-        tenderTitle: metadata.tenderTitle,
-        organization: metadata.organization || '',
-        estimatedValue: {
-          amount: metadata.estimatedValue?.amount ?? 0,
-          currency: metadata.estimatedValue?.currency || 'USD'
-        },
-        deadline: metadata.deadline ? new Date(metadata.deadline) : undefined,
-        location: metadata.location || '',
-        description: metadata.description || '',
-        requirements: metadata.requirements || [],
-        categories: metadata.categories || [],
-        contactInfo: {
-          name: metadata.contactInfo?.name || '',
-          email: metadata.contactInfo?.email || '',
-          phone: metadata.contactInfo?.phone || ''
-        }
-      },
-      rawText: text.slice(0, 50000),
-      summary: metadata.summary || '',
-      keywords: metadata.keywords || []
-    };
-
-    document.aiExtraction = aiResults;
-    document.status = 'EXTRACTED';
-    await document.save();
-
-    console.log(`✅ Document ${documentId} processed with real AI extraction`);
+    console.log(`✅ Document ${documentId} processed with real unified AI pipeline`);
   } catch (error) {
     console.error(`❌ AI processing failed for document ${documentId}:`, error);
-
-    if (!document) {
-      document = await Document.findById(documentId);
-    }
-
+    
+    // Update status to uploaded if processing fails
+    const document = await Document.findById(documentId);
     if (document) {
       document.status = 'UPLOADED';
-      document.aiExtraction = {
-        ...(document.aiExtraction || {}),
-        isProcessed: false,
-        processedAt: new Date(),
-        summary: error.message
-      };
       await document.save();
     }
   }
@@ -214,7 +172,7 @@ const processDocumentAI = catchAsync(async (req, res) => {
     });
   }
 
-  if (document.aiExtraction?.isProcessed) {
+  if (document.aiExtraction.isProcessed) {
     return res.status(400).json({
       error: 'Already processed',
       message: 'Document has already been processed by AI'
@@ -244,7 +202,7 @@ const createTenderRecord = catchAsync(async (req, res) => {
     });
   }
 
-  if (!document.aiExtraction?.isProcessed) {
+  if (!document.aiExtraction.isProcessed) {
     return res.status(400).json({
       error: 'Document not processed',
       message: 'Document must be processed by AI before creating tender record'
@@ -288,6 +246,9 @@ const createTenderRecord = catchAsync(async (req, res) => {
   };
   document.status = 'APPROVED';
   await document.save();
+
+  // Trigger outbound webhook event
+  webhookDispatcher.triggerEvent(req.companyId, 'tender.created', tender);
 
   res.status(201).json({
     data: { tender, document },

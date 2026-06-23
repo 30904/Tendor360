@@ -6,6 +6,7 @@ import PremiumKpiCard from '../../components/intelligence/PremiumKpiCard'
 import { Plus, Shield, Brain, CheckCircle, FileText, Settings } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import DataTable from '../../components/DataTable'
+import { toast } from 'react-toastify'
 import './RedactionRules.scss'
 import { dummyRedactionRulePrefill } from '../../utils/testFormDummies'
 
@@ -17,6 +18,8 @@ const RedactionRules = () => {
   const [editingRule, setEditingRule] = useState(null)
   const [prefillSnapshot, setPrefillSnapshot] = useState(null)
   const [modalFormKey, setModalFormKey] = useState(0)
+  const [selectedRule, setSelectedRule] = useState(null)
+  const [showViewModal, setShowViewModal] = useState(false)
 
   useEffect(() => {
     setRules([
@@ -198,11 +201,62 @@ const RedactionRules = () => {
   const handleDeleteRule = (rule) => {
     if (window.confirm(`Are you sure you want to delete rule "${rule.name}"?`)) {
       setRules(prev => prev.filter(r => r.id !== rule.id))
+      toast.success(`Successfully deleted rule "${rule.name}"!`)
     }
   }
 
   const handleViewRule = (rule) => {
-    console.log('View rule:', rule)
+    setSelectedRule(rule)
+    setShowViewModal(true)
+  }
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    const formEl = e.currentTarget
+    const name = formEl.elements.name.value
+    const category = formEl.elements.category.value
+    const description = formEl.elements.description.value
+    const priority = formEl.elements.priority.value
+    const status = formEl.elements.status.value
+    const aiEnabled = formEl.elements.aiEnabled.checked
+    const patternsRaw = formEl.elements.patterns.value || ''
+    const patterns = patternsRaw.split('\n').map(p => p.trim()).filter(Boolean)
+
+    if (editingRule) {
+      setRules(prev => prev.map(r => r.id === editingRule.id ? {
+        ...r,
+        name,
+        category,
+        description,
+        priority,
+        status,
+        patterns,
+        aiEnabled,
+        aiAccuracy: aiEnabled ? (r.aiAccuracy || 95) : 0,
+        lastUsed: new Date().toISOString().split('T')[0]
+      } : r))
+      toast.success(`Successfully updated rule "${name}"!`)
+    } else {
+      const nextId = rules.length ? Math.max(...rules.map(r => r.id), 0) + 1 : 1
+      const newRule = {
+        id: nextId,
+        name,
+        category,
+        description,
+        priority,
+        status,
+        patterns,
+        aiEnabled,
+        aiAccuracy: aiEnabled ? 95 : 0,
+        documents: 0,
+        lastUsed: new Date().toISOString().split('T')[0],
+        createdBy: 'Current User',
+        createdDate: new Date().toISOString().split('T')[0]
+      }
+      setRules(prev => [...prev, newRule])
+      toast.success(`Successfully created rule "${name}"!`)
+    }
+    closeRedactionModal()
   }
 
   const columns = [
@@ -395,7 +449,7 @@ const RedactionRules = () => {
         tableTitle={`Redaction rules (${rules.length})`}
         tableActions={(
           <>
-            <Button variant="outline-secondary" className="me-2">
+            <Button variant="outline-secondary" className="me-2" onClick={() => toast.info('Opening general redaction settings...')}>
               <Settings size={16} className="me-2" />
               Settings
             </Button>
@@ -425,7 +479,8 @@ const RedactionRules = () => {
               type: 'custom',
               label: 'Configure',
               onClick: (row) => {
-                console.log('Configure rule:', row.name)
+                toast.info(`Opening pattern configurations for rule "${row.name}"...`)
+                handleEditRule(row)
               }
             }
           ]}
@@ -454,23 +509,25 @@ const RedactionRules = () => {
             {editingRule ? 'Edit Redaction Rule' : 'New Redaction Rule'}
           </Modal.Title>
         </Modal.Header>
-        <Form key={modalFormKey}>
+        <Form key={modalFormKey} onSubmit={handleSubmit}>
           <Modal.Body>
             <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Rule Name</Form.Label>
                   <Form.Control
+                    name="name"
                     type="text"
                     placeholder="Enter rule name"
                     defaultValue={formSeed.name || ''}
+                    required
                   />
                 </Form.Group>
               </Col>
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Category</Form.Label>
-                  <Form.Select defaultValue={formSeed.category || ''}>
+                  <Form.Select name="category" defaultValue={formSeed.category || ''} required>
                     <option value="">Select category</option>
                     <option value="Financial">Financial</option>
                     <option value="Privacy">Privacy</option>
@@ -483,6 +540,7 @@ const RedactionRules = () => {
             <Form.Group className="mb-3">
               <Form.Label>Description</Form.Label>
               <Form.Control
+                name="description"
                 as="textarea"
                 rows={3}
                 placeholder="Enter rule description"
@@ -492,6 +550,7 @@ const RedactionRules = () => {
             <Form.Group className="mb-3">
               <Form.Label>Redaction Patterns</Form.Label>
               <Form.Control
+                name="patterns"
                 as="textarea"
                 rows={4}
                 placeholder="Enter regex patterns (one per line)"
@@ -507,7 +566,7 @@ const RedactionRules = () => {
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Priority</Form.Label>
-                  <Form.Select defaultValue={formSeed.priority || ''}>
+                  <Form.Select name="priority" defaultValue={formSeed.priority || ''} required>
                     <option value="">Select priority</option>
                     <option value="Critical">Critical</option>
                     <option value="High">High</option>
@@ -519,7 +578,7 @@ const RedactionRules = () => {
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Status</Form.Label>
-                  <Form.Select defaultValue={formSeed.status || ''}>
+                  <Form.Select name="status" defaultValue={formSeed.status || ''} required>
                     <option value="">Select status</option>
                     <option value="Active">Active</option>
                     <option value="Draft">Draft</option>
@@ -530,6 +589,7 @@ const RedactionRules = () => {
             </Row>
             <Form.Group className="mb-3">
               <Form.Check
+                name="aiEnabled"
                 type="checkbox"
                 label="Enable AI assistance for improved accuracy"
                 defaultChecked={formSeed.aiEnabled || false}
@@ -540,12 +600,80 @@ const RedactionRules = () => {
             <Button variant="secondary" onClick={closeRedactionModal}>
               Cancel
             </Button>
-            <Button variant="primary">
+            <Button variant="primary" type="submit">
               {editingRule ? 'Update Rule' : 'Create Rule'}
             </Button>
           </Modal.Footer>
         </Form>
       </FormDrawerModal>
+
+      {/* View Rule Modal */}
+      <Modal show={showViewModal} onHide={() => setShowViewModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title className="d-flex align-items-center">
+            <Shield size={20} className="me-2 text-primary" />
+            Redaction Rule Details
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedRule && (
+            <div className="p-2">
+              <h5 className="mb-3 text-primary">{selectedRule.name}</h5>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <strong>Category:</strong> <Badge bg="info">{selectedRule.category}</Badge>
+                </Col>
+                <Col md={6}>
+                  <strong>Priority:</strong> {getPriorityBadge(selectedRule.priority)}
+                </Col>
+              </Row>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <strong>Status:</strong> {getStatusBadge(selectedRule.status)}
+                </Col>
+                <Col md={6}>
+                  <strong>Documents Protected:</strong> <span className="fw-semibold">{selectedRule.documents}</span>
+                </Col>
+              </Row>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <strong>Created By:</strong> {selectedRule.createdBy} ({selectedRule.createdDate})
+                </Col>
+                <Col md={6}>
+                  <strong>Last Used:</strong> {selectedRule.lastUsed}
+                </Col>
+              </Row>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <strong>AI Enabled:</strong> {selectedRule.aiEnabled ? 'Yes' : 'No'}
+                </Col>
+                {selectedRule.aiEnabled && (
+                  <Col md={6}>
+                    <strong>AI Accuracy:</strong> <span className="text-primary fw-bold">{selectedRule.aiAccuracy}%</span>
+                  </Col>
+                )}
+              </Row>
+              <div className="mb-3 mt-3">
+                <strong>Description:</strong>
+                <p className="text-muted mt-1">{selectedRule.description}</p>
+              </div>
+              <div className="mb-3">
+                <strong>Redaction Patterns (Regex):</strong>
+                <div className="mt-2 p-2 bg-light rounded font-monospace" style={{ whiteSpace: 'pre-wrap' }}>
+                  {selectedRule.patterns && selectedRule.patterns.length > 0
+                    ? selectedRule.patterns.join('\n')
+                    : 'No patterns defined'}
+                </div>
+              </div>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowViewModal(false)}>
+            Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </>
   )
 }

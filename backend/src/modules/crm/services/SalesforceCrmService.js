@@ -52,7 +52,7 @@ async function resolveSalesforceConfig(companyId) {
 async function querySalesforceApi(config, { name, email }) {
   const base = config.instanceUrl.replace(/\/$/, '');
   const safeName = name.replace(/'/g, "\\'");
-  let soql = `SELECT Id,Name,BillingStreet,BillingCity,BillingState,Phone,Website FROM Account WHERE Name LIKE '%${safeName.slice(0, 40)}%' LIMIT 5`;
+  let soql = `SELECT Id,AccountNumber,Name,BillingStreet,BillingCity,BillingState,Phone,Website FROM Account WHERE Name LIKE '%${safeName.slice(0, 40)}%' LIMIT 5`;
   if (email) {
     const safeEmail = email.replace(/'/g, "\\'");
     soql = `SELECT Id,Name,BillingStreet,BillingCity,BillingState,Phone FROM Contact WHERE Email = '${safeEmail}' LIMIT 1`;
@@ -72,6 +72,7 @@ async function querySalesforceApi(config, { name, email }) {
   const records = response.data?.records || [];
   return records.map((r) => ({
     salesforceId: r.Id,
+    accountNumber: r.AccountNumber || null,
     name: r.Name,
     billingAddress: [r.BillingStreet, r.BillingCity, r.BillingState].filter(Boolean).join(', '),
     shippingAddress: '',
@@ -115,6 +116,7 @@ function buildValidationSnapshot(account, matchScore, matchMethod, matchedBy) {
     validatedAt: new Date(),
     snapshot: account
       ? {
+          accountNumber: account.accountNumber || null,
           division: account.division,
           relationshipStatus: account.relationshipStatus,
           historicalRevenue: account.annualRevenue,
@@ -155,14 +157,28 @@ class SalesforceCrmService {
         const apiHits = await querySalesforceApi(config, { name, email });
         if (apiHits.length) {
           const top = apiHits[0];
-          return buildValidationSnapshot(
+          
+          // Live Sync: Upsert API record into CrmAccount cache to keep local database updated
+          const cached = await CrmAccount.findOneAndUpdate(
+            { companyId, salesforceId: top.salesforceId },
             {
-              ...top,
-              division: 'Salesforce CRM',
+              companyId,
+              salesforceId: top.salesforceId,
+              accountNumber: top.accountNumber,
+              name: top.name,
+              billingAddress: top.billingAddress,
+              city: top.city,
+              state: top.state,
+              contacts: top.contacts,
+              source: 'salesforce_api',
               relationshipStatus: 'Active',
-              annualRevenue: 0,
-              previousContracts: 0
+              division: 'Salesforce CRM'
             },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+          );
+
+          return buildValidationSnapshot(
+            cached,
             88,
             'salesforce_api',
             { name: true, address: Boolean(address), contact: Boolean(email) }
