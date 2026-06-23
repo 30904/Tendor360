@@ -90,7 +90,8 @@ const requireRoles = (...roles) => {
       });
     }
 
-    const hasRequiredRole = req.user.hasAnyRole(requiredRoles);
+    const isSystemAdmin = req.user.roles?.includes(ROLES.SYSTEM_ADMINISTRATOR) || req.user.roles?.includes('SYSTEM ADMINISTRATOR');
+    const hasRequiredRole = isSystemAdmin || req.user.hasAnyRole(requiredRoles);
 
     if (!hasRequiredRole) {
       return res.status(403).json({
@@ -113,14 +114,15 @@ const requireRole = (role) => {
       });
     }
 
-    if (!req.user.hasRole(role)) {
-      return res.status(403).json({
-        error: 'Insufficient permissions',
-        message: `Access denied. Required role: ${role}`
-      });
+    const isSystemAdmin = req.user.roles?.includes(ROLES.SYSTEM_ADMINISTRATOR) || req.user.roles?.includes('SYSTEM ADMINISTRATOR');
+    if (isSystemAdmin || req.user.hasRole(role)) {
+      return next();
     }
 
-    next();
+    return res.status(403).json({
+      error: 'Insufficient permissions',
+      message: `Access denied. Required role: ${role}`
+    });
   };
 };
 
