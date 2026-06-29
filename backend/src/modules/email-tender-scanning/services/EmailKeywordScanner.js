@@ -2,6 +2,7 @@ const Watchlist = require('../../../models/Watchlist');
 const TenderSource = require('../../../models/TenderSource');
 const GlobalKeyword = require('../../../models/GlobalKeyword');
 const { loadExcelKeywordsForCompany } = require('../../tender-discovery/services/ExcelKeywordLoaderService');
+const { extractTextFromAttachment, truncateText } = require('./AttachmentTextExtractor');
 
 function normalizeKeyword(value) {
   return String(value || '').trim().toLowerCase();
@@ -48,19 +49,63 @@ function scanText(text = '', keywords = []) {
   return { hits, matched: hits.length > 0, score: hits.length };
 }
 
-function scanAttachments(attachments = [], keywords = []) {
+function decodeAttachmentBuffer(att) {
+  if (att.contentBuffer && Buffer.isBuffer(att.contentBuffer)) {
+    return att.contentBuffer;
+  }
+  if (att.contentBase64) {
+    return Buffer.from(att.contentBase64, 'base64');
+  }
+  return null;
+}
+
+async function resolveAttachmentText(att) {
+  if (att.isImage) return '';
+
+  const existing = String(att.textContent || '').trim();
+  if (existing) return existing;
+
+  const buffer = decodeAttachmentBuffer(att);
+  if (!buffer) return '';
+
+  const filename = att.name || att.filename || 'attachment';
+  const contentType = att.contentType || 'application/octet-stream';
+
+  try {
+    const extracted = await extractTextFromAttachment({ buffer, contentType, filename });
+    return truncateText(extracted);
+  } catch (error) {
+    console.warn(`ATS-003: Failed to extract text from ${filename}: ${error.message}`);
+    return '';
+  }
+}
+
+async function scanAttachments(attachments = [], keywords = []) {
   const allHits = [];
-  const scanned = attachments.map((att) => {
+  const scanned = [];
+
+  for (const att of attachments) {
     if (att.isImage) {
-      return { ...att, scanned: false, keywordHits: [], imageExcluded: true };
+      scanned.push({ ...att, scanned: false, keywordHits: [], imageExcluded: true });
+      continue;
     }
-    const text = att.textContent || '';
+
+    const text = await resolveAttachmentText(att);
     const { hits } = scanText(text, keywords);
     hits.forEach((h) => {
       if (!allHits.includes(h)) allHits.push(h);
     });
-    return { ...att, scanned: true, keywordHits: hits };
-  });
+
+    scanned.push({
+      ...att,
+      name: att.name || att.filename,
+      textContent: text,
+      scanned: true,
+      keywordHits: hits,
+      extractionFailed: !text && Boolean(decodeAttachmentBuffer(att))
+    });
+  }
+
   return { attachments: scanned, hits: allHits, matched: allHits.length > 0 };
 }
 

@@ -118,7 +118,8 @@ class EmailTenderScanService {
   async processMessageDoc(message, keywords, mailbox) {
     const body = message.bodyText || message.bodyPreview || '';
     const bodyScan = keywordScanner.scanText(body, keywords);
-    const attScan = keywordScanner.scanAttachments(message.attachments || [], keywords);
+    const attScan = await keywordScanner.scanAttachments(message.attachments || [], keywords);
+    message.attachments = attScan.attachments;
     const links = extractLinks(body);
     const hasImageOnly =
       (message.attachments || []).length > 0 &&

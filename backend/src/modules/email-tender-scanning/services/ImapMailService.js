@@ -1,5 +1,6 @@
 const imaps = require('imap-simple');
 const { simpleParser } = require('mailparser');
+const { extractTextFromAttachment, truncateText } = require('./AttachmentTextExtractor');
 
 /**
  * Fetches UNSEEN emails from a mailbox over IMAP.
@@ -77,16 +78,36 @@ async function fetchImapMessages(mailbox) {
         const bodyHtml = parsed.html || '';
         const uid = item.attributes?.uid;
 
-        // Extract plain text attachments
-        const attachments = (parsed.attachments || []).map((att) => ({
-          filename: att.filename || 'attachment',
-          contentType: att.contentType || 'application/octet-stream',
-          size: att.size || 0,
-          isImage: (att.contentType || '').startsWith('image/'),
-          textContent: att.contentType === 'text/plain'
-            ? att.content?.toString('utf8') || ''
-            : ''
-        }));
+        const attachments = [];
+        for (const att of parsed.attachments || []) {
+          const name = att.filename || 'attachment';
+          const contentType = att.contentType || 'application/octet-stream';
+          const isImage = contentType.startsWith('image/');
+          let textContent = '';
+
+          if (!isImage && att.content) {
+            try {
+              const extracted = await extractTextFromAttachment({
+                buffer: att.content,
+                contentType,
+                filename: name
+              });
+              textContent = truncateText(extracted);
+            } catch (extractErr) {
+              console.warn(`ATS-003: Failed to parse attachment ${name}: ${extractErr.message}`);
+            }
+          }
+
+          attachments.push({
+            name,
+            contentType,
+            size: att.size || 0,
+            isImage,
+            textContent,
+            scanned: false,
+            keywordHits: []
+          });
+        }
 
         messages.push({
           graphMessageId: `imap-uid-${mailbox.email}-${uid}`,  // Unique dedup key
