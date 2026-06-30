@@ -49,6 +49,27 @@ function scanText(text = '', keywords = []) {
   return { hits, matched: hits.length > 0, score: hits.length };
 }
 
+function scanTextWithOffsets(text = '', keywords = []) {
+  const lower = String(text).toLowerCase();
+  const hits = [];
+  const matchedKeywords = [];
+
+  for (const keyword of keywords) {
+    if (!keyword) continue;
+    const offset = lower.indexOf(keyword);
+    if (offset === -1) continue;
+    if (!hits.includes(keyword)) hits.push(keyword);
+    matchedKeywords.push({ keyword, offset });
+  }
+
+  return {
+    hits,
+    matchedKeywords,
+    matched: hits.length > 0,
+    score: hits.length
+  };
+}
+
 function decodeAttachmentBuffer(att) {
   if (att.contentBuffer && Buffer.isBuffer(att.contentBuffer)) {
     return att.contentBuffer;
@@ -82,23 +103,30 @@ async function resolveAttachmentText(att) {
 
 async function scanAttachments(attachments = [], keywords = []) {
   const allHits = [];
+  const attachmentMatches = [];
   const scanned = [];
 
   for (const att of attachments) {
+    const filename = att.name || att.filename || 'attachment';
+
     if (att.isImage) {
       scanned.push({ ...att, scanned: false, keywordHits: [], imageExcluded: true });
       continue;
     }
 
     const text = await resolveAttachmentText(att);
-    const { hits } = scanText(text, keywords);
+    const { hits, matchedKeywords } = scanTextWithOffsets(text, keywords);
     hits.forEach((h) => {
       if (!allHits.includes(h)) allHits.push(h);
     });
 
+    if (matchedKeywords.length) {
+      attachmentMatches.push({ filename, matchedKeywords });
+    }
+
     scanned.push({
       ...att,
-      name: att.name || att.filename,
+      name: filename,
       textContent: text,
       scanned: true,
       keywordHits: hits,
@@ -106,11 +134,17 @@ async function scanAttachments(attachments = [], keywords = []) {
     });
   }
 
-  return { attachments: scanned, hits: allHits, matched: allHits.length > 0 };
+  return {
+    attachments: scanned,
+    hits: allHits,
+    attachmentMatches,
+    matched: allHits.length > 0
+  };
 }
 
 module.exports = {
   loadKeywordsForCompany,
   scanText,
+  scanTextWithOffsets,
   scanAttachments
 };

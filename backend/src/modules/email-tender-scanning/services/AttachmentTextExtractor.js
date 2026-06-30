@@ -55,11 +55,21 @@ async function extractTextFromAttachment({ buffer, contentType, filename } = {})
     return parsed.text || '';
   }
 
-  if (
+  const isLegacyDoc =
+    (lowerName.endsWith('.doc') && !lowerName.endsWith('.docx')) ||
+    ct === 'application/msword';
+  if (isLegacyDoc) {
+    console.warn(
+      `ATS-003: Legacy .doc not supported; use .docx (${filename || 'attachment'})`
+    );
+    return '';
+  }
+
+  const isDocx =
+    ct.includes('wordprocessingml.document') ||
     ct.includes('wordprocessingml') ||
-    ct.includes('officedocument') ||
-    lowerName.endsWith('.docx')
-  ) {
+    lowerName.endsWith('.docx');
+  if (isDocx) {
     const parsed = await mammoth.extractRawText({ buffer });
     return parsed.value || '';
   }

@@ -130,6 +130,7 @@ class EmailTenderScanService {
       message.scan = {
         bodyKeywordHits: [],
         attachmentKeywordHits: [],
+        attachmentMatches: [],
         matchedKeywords: [],
         scanMode: 'image_excluded_oos'
       };
@@ -151,6 +152,7 @@ class EmailTenderScanService {
     message.scan = {
       bodyKeywordHits: bodyScan.hits,
       attachmentKeywordHits: attScan.hits,
+      attachmentMatches: attScan.attachmentMatches || [],
       matchedKeywords: allHits,
       scanMode: links.length ? 'links_and_keywords' : 'keywords_only'
     };

@@ -48,6 +48,17 @@ const emailTenderMessageSchema = new mongoose.Schema(
     scan: {
       bodyKeywordHits: [String],
       attachmentKeywordHits: [String],
+      attachmentMatches: [
+        {
+          filename: String,
+          matchedKeywords: [
+            {
+              keyword: String,
+              offset: Number
+            }
+          ]
+        }
+      ],
       matchedKeywords: [String],
       scanMode: {
         type: String,
