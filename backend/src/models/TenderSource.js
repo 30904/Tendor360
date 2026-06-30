@@ -81,7 +81,13 @@ const tenderSourceSchema = new mongoose.Schema({
     loginUsername: { type: String, trim: true },
     loginPassword: { type: String, trim: true },
     resultsContainerSelector: { type: String, trim: true },
-    itemLinkSelector: { type: String, trim: true, default: 'a[href]' }
+    itemLinkSelector: { type: String, trim: true, default: 'a[href]' },
+    followDetailLinks: { type: Boolean, default: true },
+    detailTitleSelector: { type: String, trim: true },
+    detailBodySelector: { type: String, trim: true },
+    detailPageTimeoutMs: { type: Number, default: 30000, min: 5000, max: 120000 },
+    detailDelayMs: { type: Number, default: 0, min: 0, max: 10000 },
+    skipDetailKeywordRecheck: { type: Boolean, default: false }
   },
   
   // Status and configuration

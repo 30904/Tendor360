@@ -41,7 +41,18 @@ const CONNECTOR_CATALOG = [
     displayName: 'Web scraping',
     integrationMode: 'web_scraping',
     description: 'Uses Playwright headless browser for full JS rendering and auth flow.',
-    fields: ['searchUrl', 'loginUrl', 'keywords', 'itemLinkSelector']
+    fields: [
+      'searchUrl',
+      'loginUrl',
+      'keywords',
+      'itemLinkSelector',
+      'followDetailLinks',
+      'detailTitleSelector',
+      'detailBodySelector',
+      'detailPageTimeoutMs',
+      'detailDelayMs',
+      'skipDetailKeywordRecheck'
+    ]
   },
   {
     key: 'email',
